@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Customers</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body id="page-customers" class="bg-grad">
+  <!-- Navbar -->
+  <header class="topbar">
+    <div class="brand-row">
+      <span class="brand">Pack &amp; Wrap</span>
+      <span class="chip success" id="overallProfitChip">Overall 0 TK</span>
+    </div>
+    <nav class="tabs">
+      <a href="overview.html">Overview</a>
+      <a href="products.html">Products</a>
+      <a href="investments.html">Investments</a>
+      <a href="sales.html">Sales</a>
+      <a href="customers.html">Customers</a>
+      <a href="boost.html">Boost</a>
+      <a href="backup.html">Backup</a>
+      <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Customers by Month</h2>
+      <div class="card">
+        <div class="flex-between">
+          <h3>Customers</h3>
+          <input type="month" id="custMonth"/>
+        </div>
+        <table class="table" id="custTable">
+          <thead>
+            <tr><th>Date</th><th>#</th><th>Name</th>
+              <th>8/10+2</th><th>10/14+2</th><th>12/16+2</th><th>14/18+2</th><th>Total (TK)</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Login</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body class="bg-grad center">
+  <main class="card narrow">
+    <h1 class="brand">Pack &amp; Wrap</h1>
+    <p class="sub">Sales • Inventory • Profit</p>
+
+    <form id="loginForm" class="form vgap">
+      <div class="field">
+        <label>Username</label>
+        <input id="u" type="text" required autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="p" type="password" required autocomplete="current-password"/>
+      </div>
+      <button class="btn primary" type="submit">Login</button>
+      <p id="loginErr" class="err hide">Invalid credentials</p>
+    </form>
+
+    <footer class="muted xs">Note: static login only obfuscates credentials (not real security).</footer>
+  </main>
+
+  <script>
+    async function sha(x){const e=new TextEncoder().encode(x);const b=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,'0')).join('');}
+    const PASS_HASH="a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"; // sha256("123")
+    (async()=>{window._USER_HASH=await sha("Tasha");window._PASS_HASH=PASS_HASH;})();
+    document.getElementById('loginForm').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const uh=await sha(document.getElementById('u').value.trim());
+      const ph=await sha(document.getElementById('p').value);
+      if(uh===window._USER_HASH && ph===window._PASS_HASH){
+        sessionStorage.setItem('pw_authed','1');
+        location.href='overview.html';
+      }else{
+        document.getElementById('loginErr').classList.remove('hide');
+      }
+    });
+  </script>
+</body>
+</html>

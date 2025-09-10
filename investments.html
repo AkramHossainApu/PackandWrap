@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Investments</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body id="page-investments" class="bg-grad">
+  <!-- Navbar -->
+  <header class="topbar">
+    <div class="brand-row">
+      <span class="brand">Pack &amp; Wrap</span>
+      <span class="chip success" id="overallProfitChip">Overall 0 TK</span>
+    </div>
+    <nav class="tabs">
+      <a href="overview.html">Overview</a>
+      <a href="products.html">Products</a>
+      <a href="investments.html">Investments</a>
+      <a href="sales.html">Sales</a>
+      <a href="customers.html">Customers</a>
+      <a href="boost.html">Boost</a>
+      <a href="backup.html">Backup</a>
+      <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Investments</h2>
+      <div class="card">
+        <h3>Add Investment (each pack = 100 pcs)</h3>
+        <form id="invForm" class="form grid-compact">
+          <select id="inv-product"></select>
+          <input required type="number" min="1" step="1" id="inv-packs" placeholder="Packs (x100)"/>
+          <select id="inv-batch"><option value="1">1st Investment</option><option value="2">2nd Investment</option></select>
+          <input type="date" id="inv-date"/>
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Investment List</h3>
+        <table class="table" id="invTable">
+          <thead><tr><th>Date</th><th>Batch</th><th>Size/Color</th><th>Packs</th><th>Cost</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Inventory (packs of 100)</h3>
+        <table class="table" id="inventoryTable">
+          <thead><tr><th>Size</th><th>Color</th><th>Purchased</th><th>Sold</th><th>In Stock</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';</script>
+</body>
+</html>

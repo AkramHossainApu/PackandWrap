@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Backup</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body id="page-backup" class="bg-grad">
+  <!-- Navbar -->
+  <header class="topbar">
+    <div class="brand-row">
+      <span class="brand">Pack &amp; Wrap</span>
+      <span class="chip success" id="overallProfitChip">Overall 0 TK</span>
+    </div>
+    <nav class="tabs">
+      <a href="overview.html">Overview</a>
+      <a href="products.html">Products</a>
+      <a href="investments.html">Investments</a>
+      <a href="sales.html">Sales</a>
+      <a href="customers.html">Customers</a>
+      <a href="boost.html">Boost</a>
+      <a href="backup.html">Backup</a>
+      <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Backup / Import</h2>
+      <div class="card">
+        <h3>Export / Import JSON</h3>
+        <div class="flex-gap">
+          <button class="btn" id="btnExport">Export JSON</button>
+          <label class="btn ghost">Import JSON<input type="file" id="fileImport" hidden accept="application/json"/></label>
+          <button class="btn danger" id="btnReset">Reset All Data</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>CSV Import (choose type)</h3>
+        <div class="form grid-compact">
+          <select id="csvType">
+            <option value="products">Products (size,color,buy1,sell1,lowest)</option>
+            <option value="investments">Investments (date,batch(1|2),size,color,packs)</option>
+            <option value="sales">Sales (date,customer,size,color,packs,price100,batch(1|2),pay)</option>
+            <option value="expenses">Expenses (date,type,description,amountTK)</option>
+          </select>
+          <label class="btn ghost">Import CSV<input type="file" id="csvFile" hidden accept=".csv,text/csv"/></label>
+        </div>
+        <small class="muted">Tip: Use headers exactly as shown in parentheses.</small>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';</script>
+</body>
+</html>
