@@ -10,41 +10,78 @@ const store = {
 };
 
 // Keys
-const K_PRODUCTS='pw_products';
-const K_INV='pw_investments';
-const K_SALES='pw_sales';
-const K_EXP='pw_expenses';
+const K_PRODUCTS   = 'pw_products';
+const K_INV        = 'pw_investments';
+const K_SALES      = 'pw_sales';
+const K_EXP        = 'pw_expenses';
+const K_COLLAPSE   = 'pw_collapsed_types';
+const K_COLLCOLOR  = 'pw_collapsed_colors';
+const K_TYPES      = 'pw_attr_types';
+const K_SIZES      = 'pw_attr_sizes';
+const K_COLORS     = 'pw_attr_colors';
 
 // ---------- Seed ----------
 function seed(){
-  if(!store.get(K_PRODUCTS)){
-    store.set(K_PRODUCTS,[
-      {size:'8/10+2',  color:'White',        buy1:2.00, sell1:3.00, lowest:2.50},
-      {size:'10/14+2', color:'White',        buy1:2.50, sell1:3.50, lowest:2.80},
-      {size:'12/16+2', color:'White',        buy1:3.50, sell1:4.50, lowest:3.80},
-      {size:'14/18+2', color:'White',        buy1:4.50, sell1:5.50, lowest:4.90},
-      {size:'8/10+2',  color:'White (Print)',buy1:2.80, sell1:4.00, lowest:null},
-      {size:'10/14+2', color:'White (Print)',buy1:3.00, sell1:4.50, lowest:null},
-      {size:'12/16+2', color:'White (Print)',buy1:4.00, sell1:5.50, lowest:null},
-    ]);
-  }
+  if(!store.get(K_PRODUCTS)) store.set(K_PRODUCTS, []);
   if(!store.get(K_INV)) store.set(K_INV,[]);
   if(!store.get(K_SALES)) store.set(K_SALES,[]);
   if(!store.get(K_EXP)) store.set(K_EXP,[]);
+  if(!store.get(K_COLLAPSE)) store.set(K_COLLAPSE,[]);
+  if(!store.get(K_COLLCOLOR)) store.set(K_COLLCOLOR,[]);
+  if(!store.get(K_TYPES))  store.set(K_TYPES, []);
+  if(!store.get(K_SIZES))  store.set(K_SIZES, []);
+  if(!store.get(K_COLORS)) store.set(K_COLORS, []);
 }
 seed();
 
 // Shortcuts
-const P = ()=>store.get(K_PRODUCTS,[]);
+const P   = ()=>store.get(K_PRODUCTS,[]);
 const INV = ()=>store.get(K_INV,[]);
-const S = ()=>store.get(K_SALES,[]);
+const S   = ()=>store.get(K_SALES,[]);
 const EXP = ()=>store.get(K_EXP,[]);
+const collapsedTypes     = () => store.get(K_COLLAPSE,[]);
+const setCollapsedTypes  = v => store.set(K_COLLAPSE, v);
+const collapsedColors    = () => store.get(K_COLLCOLOR,[]);
+const setCollapsedColors = v => store.set(K_COLLCOLOR, v);
+
+// Attributes
+let types  = store.get(K_TYPES, []);
+let sizes  = store.get(K_SIZES, []);
+let colors = store.get(K_COLORS, []);
+
+const safe = v => (v ?? '').toString();
+const uniqueKey = p => `${safe(p.type)}|${safe(p.size)}|${safe(p.color)}`;
+
 const prodKey = p => `${p.size} | ${p.color}`;
 const allKeys = ()=>P().map(prodKey);
 const findProduct = key => {
   const [size,color] = key.split(' | ');
   return P().find(p=>p.size===size && p.color===color);
 };
+
+// ---------- Normalization ----------
+function normalizeProducts(){
+  let items = store.get(K_PRODUCTS, []);
+  let changed = false;
+
+  items = items.map(p=>{
+    const q = {...p};
+    q.type  = safe(q.type);
+    q.size  = safe(q.size);
+    q.color = safe(q.color);
+    q.buy1  = Number(q.buy1 ?? 0);
+    q.sell1 = Number(q.sell1 ?? 0);
+    if(q.lowest === '' || q.lowest === undefined) q.lowest = null;
+    return q;
+  });
+
+  const map = new Map();
+  for(const p of items){ map.set(uniqueKey(p), p); }
+  const deduped = [...map.values()];
+  if(deduped.length !== items.length){ changed = true; }
+
+  if(changed) store.set(K_PRODUCTS, deduped);
+}
 
 // ---------- Totals / Overview ----------
 function totals(){
@@ -59,7 +96,6 @@ function totals(){
 function renderOverviewTotals(){
   const {inv1,inv2,sell1,sell2,exp,overall} = totals();
 
-  // Totals section
   $('#tInv1') && ($('#tInv1').textContent = TK(inv1));
   $('#tInv2') && ($('#tInv2').textContent = TK(inv2));
   $('#tSell1') && ($('#tSell1').textContent = TK(sell1));
@@ -67,25 +103,21 @@ function renderOverviewTotals(){
   $('#tExp')  && ($('#tExp').textContent  = TK(exp));
   $('#tProfit') && ($('#tProfit').textContent = TK(overall));
 
-  // Navbar chip
   if($('#overallProfitChip')){
     const chip = $('#overallProfitChip');
     chip.textContent = overall >= 0 ? `Overall Profit: ${TK(overall)}` : `Overall Loss: ${TK(Math.abs(overall))}`;
     chip.className = 'chip ' + (overall >= 0 ? 'profit' : 'loss');
   }
 
-  // Highlights (only for overview page)
   if($('#overviewHighlights')){
     const customers = new Set(S().map(s=>s.customer)).size;
     $('#highlightCustomers').textContent = customers;
 
-    // Best seller
     const best = {};
     S().forEach(s=>{ best[s.key]=(best[s.key]||0)+s.packs; });
     let top = Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
     $('#highlightBest').textContent = top ? `${top[0]} (${top[1]} packs)` : '—';
 
-    // Low stock (under 3 packs left)
     const low = allKeys().filter(k=>{
       const purchased=INV().filter(r=>r.key===k).reduce((a,b)=>a+b.packs,0);
       const sold=S().filter(r=>r.key===k).reduce((a,b)=>a+b.packs,0);
@@ -94,110 +126,282 @@ function renderOverviewTotals(){
     $('#highlightLow').textContent = low.length ? low.join(', ') : 'All OK';
   }
 
-  // Charts (only for overview page)
   if($('#chartProfit')) renderCharts();
 }
 
-
-/// ----- Dynamic Size/Color Lists -----
-let sizes = ['8/10+2','10/14+2','12/16+2','14/18+2'];
-let colors = ['White','White (Print)'];
-
+// ---------- Attribute dropdowns ----------
+function refreshAttrListsFromStore(){
+  types  = store.get(K_TYPES, []);
+  sizes  = store.get(K_SIZES, []);
+  colors = store.get(K_COLORS, []);
+}
+function renderTypeSelect(selected=''){
+  refreshAttrListsFromStore();
+  return `<select class="type-select">
+    ${types.map(t=>`<option ${t===selected?'selected':''}>${t}</option>`).join('')}
+  </select>`;
+}
 function renderSizeSelect(selected=''){
+  refreshAttrListsFromStore();
   return `<select class="size-select">
     ${sizes.map(s=>`<option ${s===selected?'selected':''}>${s}</option>`).join('')}
-    <option value="__new">➕ Add New Size</option>
   </select>`;
 }
 function renderColorSelect(selected=''){
+  refreshAttrListsFromStore();
   return `<select class="color-select">
     ${colors.map(c=>`<option ${c===selected?'selected':''}>${c}</option>`).join('')}
-    <option value="__new">➕ Add New Color</option>
   </select>`;
 }
 
-// ----- Products Table -----
+function updateProductKeySelects(){
+  const opts = allKeys().map(k=>`<option>${k}</option>`).join('');
+  $('#inv-product') && ($('#inv-product').innerHTML = opts);
+  $('#sale-product') && ($('#sale-product').innerHTML = opts);
+}
+
+// ---------- Products Table (grouped, collapsible) ----------
 function renderProducts(){
   const tb = $('#productTable tbody');
   if(!tb) return;
-  tb.innerHTML = P().map((p,i)=>{
+
+  const itemsSorted = [...P()].sort((a,b)=>{
+    return safe(a.type).localeCompare(safe(b.type))
+        || safe(a.color).localeCompare(safe(b.color))
+        || safe(a.size).localeCompare(safe(b.size));
+  });
+
+  const tCollapsed = new Set(collapsedTypes());
+  const cCollapsed = new Set(collapsedColors());
+
+  let html='';
+  let currentType='';
+  let currentColor='';
+
+  const COLSPAN = 6; // Size, Buy, Sell, Lowest, Status, Actions
+
+  itemsSorted.forEach((p)=>{
+    const uKey = uniqueKey(p);
+
+    // New Type header
+    if(p.type!==currentType){
+      currentType=p.type;
+      currentColor='';
+      const isTCol = tCollapsed.has(currentType);
+      html += `
+        <tr class="group-row" data-group="type" data-type="${currentType}">
+          <td colspan="${COLSPAN}">
+            <button class="btn ghost btnToggleType" data-type="${currentType}" type="button">${isTCol?'▸':'▾'}</button>
+            <strong style="margin-left:6px">${currentType || '(No Type)'}</strong>
+          </td>
+        </tr>`;
+    }
+
+    // New Color subheader
+    if(p.color!==currentColor){
+      currentColor=p.color;
+      const key = `${currentType}||${currentColor}`;
+      const isCCol = cCollapsed.has(key);
+      const hiddenByType = tCollapsed.has(currentType) ? 'style="display:none"' : '';
+      html += `
+        <tr class="group-row sub" data-group="color" data-type="${currentType}" data-color="${currentColor}" ${hiddenByType}>
+          <td colspan="${COLSPAN}">
+            <button class="btn ghost btnToggleColor" data-type="${currentType}" data-color="${currentColor}" type="button">${isCCol?'▸':'▾'}</button>
+            <span style="margin-left:6px"><em>${currentColor || '(No Variant)'}</em></span>
+          </td>
+        </tr>`;
+    }
+
+    const cKey = `${currentType}||${currentColor}`;
+    const hidden = (tCollapsed.has(currentType) || cCollapsed.has(cKey)) ? 'style="display:none"' : '';
     const warn = p.lowest!=null && p.sell1 < p.lowest;
-    return `<tr data-idx="${i}">
-      <td>${p.size}</td>
-      <td>${p.color}</td>
-      <td>${p.buy1} TK</td>
-      <td>${p.sell1} TK</td>
-      <td>${p.lowest? p.lowest+' TK':'—'}</td>
-      <td>${warn?'<span class="warn-badge">Below Market</span>':''}</td>
-      <td>
-        <button class="btn ghost btnEdit">Edit</button>
-        <button class="btn danger btnDelete">Delete</button>
-      </td>
-    </tr>`;
-  }).join('');
+
+    html += `
+      <tr data-row="item" data-type="${currentType}" data-color="${currentColor}" data-key="${uKey}" ${hidden}>
+        <td>${p.size}</td>
+        <td>${p.buy1} TK</td>
+        <td>${p.sell1} TK</td>
+        <td>${p.lowest!=null? (p.lowest+' TK') : '—'}</td>
+        <td>${warn?'<span class="warn-badge">Below Market</span>':''}</td>
+        <td>
+          <button class="btn ghost btnEdit" type="button">Edit</button>
+          <button class="btn danger btnDelete" type="button">Delete</button>
+        </td>
+      </tr>`;
+  });
+
+  tb.innerHTML=html;
+  updateProductKeySelects();
+  attachProductSearch();
 }
 
-// ----- Add New Row -----
-$('#btnAddProduct')?.addEventListener('click', ()=>{
+// ---------- Add New Product (fields appear AT TOP) ----------
+document.addEventListener('click', (e)=>{
+  const addBtn = e.target.closest('#btnAddProduct');
+  if(!addBtn) return;
+
   const tb=$('#productTable tbody');
-  const newRow=document.createElement('tr');
-  newRow.innerHTML=`
+  if(!tb) return;
+
+  if(tb.querySelector('tr[data-row="edit"][data-mode="new"]')) return;
+
+  const tr=document.createElement('tr');
+  tr.setAttribute('data-row','edit');
+  tr.setAttribute('data-mode','new');
+
+  tr.innerHTML=`
     <td>${renderSizeSelect()}</td>
-    <td>${renderColorSelect()}</td>
     <td><input type="number" step="0.01" class="inBuy" placeholder="Buy (1)"/></td>
     <td><input type="number" step="0.01" class="inSell" placeholder="Sell (1)"/></td>
     <td><input type="number" step="0.01" class="inLowest" placeholder="Lowest"/></td>
     <td></td>
-    <td><button class="btn primary btnSave">Save</button></td>`;
-  tb.appendChild(newRow);
+    <td class="actions-cell">
+      ${renderTypeSelect()}
+      ${renderColorSelect()}
+      <button class="btn primary btnSave" type="button">Save</button>
+      <button class="btn ghost btnCancel" type="button">Cancel</button>
+    </td>`;
+  tb.prepend(tr);
 });
 
-// ----- Handle Table Actions -----
-$('#productTable')?.addEventListener('click', e=>{
-  const tr=e.target.closest('tr'); if(!tr) return;
-  const idx=tr.getAttribute('data-idx');
-  const items=P();
+// ---------- Handle Products table actions ----------
+document.addEventListener('click', (e)=>{
+  const table = e.target.closest('#productTable');
+  if(!table) return;
 
-  // Save new or edited row
-  if(e.target.classList.contains('btnSave')){
-    const sizeSel=tr.querySelector('.size-select');
-    const colorSel=tr.querySelector('.color-select');
-    let size=sizeSel.value, color=colorSel.value;
-    if(size==='__new'){ size=prompt('Enter new size:'); if(size) sizes.push(size); }
-    if(color==='__new'){ color=prompt('Enter new color:'); if(color) colors.push(color); }
-    const buy=Number(tr.querySelector('.inBuy').value);
-    const sell=Number(tr.querySelector('.inSell').value);
-    const lowest=tr.querySelector('.inLowest').value? Number(tr.querySelector('.inLowest').value):null;
+  const tr = e.target.closest('tr');
 
-    const product={size,color,buy1:buy,sell1:sell,lowest};
-    if(idx!=null){ items[idx]=product; } else { items.push(product); }
-    store.set(K_PRODUCTS,items);
-    renderAll();
+  // Toggle TYPE
+  const tBtn = e.target.closest('.btnToggleType');
+  if(tBtn){
+    const type=tBtn.getAttribute('data-type');
+    const set=new Set(collapsedTypes());
+    if(set.has(type)) set.delete(type); else set.add(type);
+    setCollapsedTypes([...set]);
+    renderProducts();
+    return;
   }
 
-  // Edit row
-  if(e.target.classList.contains('btnEdit')){
-    const p=items[idx];
+  // Toggle COLOR
+  const cBtn = e.target.closest('.btnToggleColor');
+  if(cBtn){
+    const type=cBtn.getAttribute('data-type');
+    const color=cBtn.getAttribute('data-color');
+    const key=`${type}||${color}`;
+    const set=new Set(collapsedColors());
+    if(set.has(key)) set.delete(key); else set.add(key);
+    setCollapsedColors([...set]);
+    renderProducts();
+    return;
+  }
+
+  // Edit
+  const editBtn = e.target.closest('.btnEdit');
+  if(editBtn){
+    const arr = P();
+    const uKey = tr.getAttribute('data-key');
+    const idx = arr.findIndex(x=> uniqueKey(x)===uKey);
+    if(idx < 0) return; // not found (shouldn't happen)
+    const p = arr[idx];
+
+    tr.setAttribute('data-row','edit');
+    tr.setAttribute('data-mode','edit');
+    tr.setAttribute('data-key', uKey);
     tr.innerHTML=`
       <td>${renderSizeSelect(p.size)}</td>
-      <td>${renderColorSelect(p.color)}</td>
       <td><input type="number" step="0.01" class="inBuy" value="${p.buy1}"/></td>
       <td><input type="number" step="0.01" class="inSell" value="${p.sell1}"/></td>
       <td><input type="number" step="0.01" class="inLowest" value="${p.lowest??''}"/></td>
       <td></td>
-      <td><button class="btn primary btnSave">Save</button></td>`;
+      <td class="actions-cell">
+        ${renderTypeSelect(p.type)}
+        ${renderColorSelect(p.color)}
+        <button class="btn primary btnSave" type="button">Save</button>
+        <button class="btn ghost btnCancel" type="button">Cancel</button>
+      </td>`;
+    return;
   }
 
-  // Delete row
-  if(e.target.classList.contains('btnDelete')){
-    if(confirm('Are you sure you want to delete this product?')){
-      items.splice(idx,1);
-      store.set(K_PRODUCTS,items);
+  // Cancel
+  const cancelBtn = e.target.closest('.btnCancel');
+  if(cancelBtn){
+    renderProducts();
+    return;
+  }
+
+  // Delete (by stable key)
+  const delBtn = e.target.closest('.btnDelete');
+  if(delBtn){
+    const arr = P();
+    const uKey = tr.getAttribute('data-key');
+    const realIdx = arr.findIndex(x=> uniqueKey(x)===uKey);
+    if(realIdx>-1 && confirm('Are you sure you want to delete this product?')){
+      arr.splice(realIdx,1);
+      store.set(K_PRODUCTS,arr);
       renderAll();
     }
+    return;
+  }
+
+  // Save (new or edit) — validate & de-duplicate
+  const saveBtn = e.target.closest('.btnSave');
+  if(saveBtn){
+    const mode   = tr.getAttribute('data-mode'); // 'new' or 'edit'
+    const oldKey = tr.getAttribute('data-key');  // defined in edit mode
+
+    let typeSel  = tr.querySelector('.type-select')?.value;
+    let colorSel = tr.querySelector('.color-select')?.value;
+    let sizeSel  = tr.querySelector('.size-select')?.value;
+
+    refreshAttrListsFromStore();
+
+    if(!types.includes(typeSel) || !sizes.includes(sizeSel) || !colors.includes(colorSel)){
+      alert('Please select valid Type, Size, and Color from the lists. To add new ones, use “Manage Types & Sizes”.');
+      return;
+    }
+
+    const buy = Number(tr.querySelector('.inBuy')?.value);
+    const sell = Number(tr.querySelector('.inSell')?.value);
+    const lowestRaw = tr.querySelector('.inLowest')?.value ?? '';
+    const lowest = lowestRaw === '' ? null : Number(lowestRaw);
+
+    if(Number.isNaN(buy) || Number.isNaN(sell)){
+      alert('Please enter valid Buy and Sell prices.');
+      return;
+    }
+
+    const product = { type:typeSel, size:sizeSel, color:colorSel, buy1:buy, sell1:sell, lowest };
+    const newKey = uniqueKey(product);
+    const arr = P();
+
+    if(mode==='edit'){
+      const i = arr.findIndex(x=> uniqueKey(x)===oldKey);
+      if(i<0){ renderAll(); return; } // fallback
+
+      const existsIdx = arr.findIndex(x=> uniqueKey(x)===newKey);
+      if(existsIdx>-1 && existsIdx!==i){
+        // Merge to existing and remove original slot
+        arr[existsIdx] = product;
+        arr.splice(i,1);
+      }else{
+        arr[i] = product;
+      }
+      store.set(K_PRODUCTS, arr);
+
+    }else{ // new
+      const existsIdx = arr.findIndex(x=> uniqueKey(x)===newKey);
+      if(existsIdx>-1){
+        arr[existsIdx] = product;
+      }else{
+        arr.push(product);
+      }
+      store.set(K_PRODUCTS, arr);
+    }
+
+    renderAll();
+    return;
   }
 });
-
 
 // ---------- Investments & Inventory ----------
 function costFor(key,packs){ const p=findProduct(key); return p? p.buy1*100*packs : 0; }
@@ -265,7 +469,7 @@ function renderSales(){
     e.target.reset(); renderAll();
   });
 
-  const month = $('#monthFilter').value;
+  const month = $('#monthFilter')?.value;
   const rows = S().filter(s=>!month || s.date.startsWith(month))
                   .sort((a,b)=>b.date.localeCompare(a.date));
   $('#salesTable tbody').innerHTML = rows.map((s,i)=>`
@@ -284,7 +488,6 @@ function renderSales(){
     const list=S(); list.splice(Number(idx),1); store.set(K_SALES,list); renderAll();
   });
 
-  // Recent
   if($('#recentSales')){
     const recent = S().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
     $('#recentSales tbody').innerHTML = recent.map(s=>`
@@ -292,7 +495,6 @@ function renderSales(){
       <td>${s.packs}</td><td>${TK(s.price100)}</td><td>${TK(s.estProfit)}</td></tr>`).join('');
   }
 
-  // Charts
   if($('#chartProfit')) renderCharts();
 }
 function drawLine(canvasId, labels, values, title){
@@ -301,9 +503,9 @@ function drawLine(canvasId, labels, values, title){
   ctx.clearRect(0,0,W,H);
   const max=Math.max(1,...values); const xstep=(W-pad*2)/Math.max(1,values.length-1);
   const y=v=> H-pad - (v/max)*(H-pad*2);
-  ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.beginPath();
+  ctx.beginPath();
   values.forEach((v,i)=>{const X=pad+i*xstep,Y=y(v); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)}); ctx.stroke();
-  ctx.fillStyle="#cbd5e1"; ctx.font="12px sans-serif"; ctx.fillText(title,10,14);
+  ctx.fillText(title,10,14);
 }
 function drawBars(canvasId, labels, aVals, bVals, title){
   const c=document.getElementById(canvasId), ctx=c.getContext('2d');
@@ -312,10 +514,10 @@ function drawBars(canvasId, labels, aVals, bVals, title){
   const max=Math.max(1,...aVals,...bVals), n=labels.length;
   const bw=(W-pad*2)/n*.8, step=(W-pad*2)/n, y=v=>H-pad-(v/max)*(H-pad*2);
   for(let i=0;i<n;i++){
-    const x=pad+i*step; ctx.fillStyle="#93c5fd"; ctx.fillRect(x, y(aVals[i]), bw/2, H-pad - y(aVals[i]));
-    ctx.fillStyle="#a7f3d0"; ctx.fillRect(x+bw/2+4, y(bVals[i]), bw/2, H-pad - y(bVals[i]));
+    const x=pad+i*step; ctx.fillRect(x, y(aVals[i]), bw/2, H-pad - y(aVals[i]));
+    ctx.fillRect(x+bw/2+4, y(bVals[i]), bw/2, H-pad - y(bVals[i]));
   }
-  ctx.fillStyle="#cbd5e1"; ctx.font="12px sans-serif"; ctx.fillText(title,10,14);
+  ctx.fillText(title,10,14);
 }
 function renderCharts(){
   const dates = Array.from(new Set([...S().map(s=>s.date), ...EXP().map(e=>e.date)])).sort();
@@ -337,7 +539,7 @@ function renderCustomers(){
   if(!$('#custTable')) return;
   const month = $('#custMonth').value || new Date().toISOString().slice(0,7);
   const rows = S().filter(s=>s.date.startsWith(month));
-  const sizes = ['8/10+2','10/14+2','12/16+2','14/18+2'];
+  const sizesList = store.get(K_SIZES, []);
   const grouped = {};
   rows.forEach(s=>{
     const [size] = s.key.split(' | ');
@@ -350,7 +552,7 @@ function renderCustomers(){
   $('#custTable tbody').innerHTML = Object.values(grouped)
     .sort((a,b)=>a.date.localeCompare(b.date))
     .map(g=>{
-      const cells = sizes.map(sz=> g.sizes[sz]? `${g.sizes[sz]} (x100)` : '0').join('</td><td>');
+      const cells = sizesList.map(sz=> g.sizes[sz]? `${g.sizes[sz]} (x100)` : '0').join('</td><td>');
       return `<tr><td>${g.date}</td><td>${i++}</td><td>${g.name}</td><td>${cells}</td><td>${TK(g.total)}</td></tr>`;
     }).join('');
   $('#custMonth')?.addEventListener('change', renderCustomers);
@@ -412,10 +614,12 @@ $('#csvFile')?.addEventListener('change', async e=>{
   if(type==='products'){
     const items=P();
     rows.forEach(r=>{
-      const obj={size:r.size,color:r.color,buy1:Number(r.buy1),sell1:Number(r.sell1),lowest:r.lowest?Number(r.lowest):null};
-      const i=items.findIndex(x=>x.size===obj.size&&x.color===obj.color);
+      const obj={type:safe(r.type), size:safe(r.size), color:safe(r.color), buy1:Number(r.buy1), sell1:Number(r.sell1), lowest:r.lowest?Number(r.lowest):null};
+      const i=items.findIndex(x=>uniqueKey(x)===uniqueKey(obj));
       if(i>-1) items[i]=obj; else items.push(obj);
-    }); store.set(K_PRODUCTS,items);
+    });
+    store.set(K_PRODUCTS, items);
+    normalizeProducts();
   }else if(type==='investments'){
     const inv=INV();
     rows.forEach(r=>{
@@ -434,21 +638,176 @@ $('#csvFile')?.addEventListener('change', async e=>{
   renderAll(); alert('CSV import complete.');
 });
 
+// ---------- Search / Filter ----------
+function attachProductSearch(){
+  const input = $('#productSearch');
+  if(!input) return;
+  input.oninput = ()=>{
+    const q = input.value.trim().toLowerCase();
+
+    const itemRows   = $$('#productTable tbody tr[data-row="item"]');
+    const typeHdrs   = $$('#productTable tbody tr[data-group="type"]');
+    const colorHdrs  = $$('#productTable tbody tr[data-group="color"]');
+
+    const tCollapsed = new Set(collapsedTypes());
+    const cCollapsed = new Set(collapsedColors());
+
+    if(!q){
+      typeHdrs.forEach(h=>h.style.display='');
+      colorHdrs.forEach(h=>{
+        const type=h.getAttribute('data-type');
+        h.style.display = tCollapsed.has(type) ? 'none' : '';
+      });
+      itemRows.forEach(r=>{
+        const type=r.getAttribute('data-type');
+        const color=r.getAttribute('data-color');
+        const key=`${type}||${color}`;
+        r.style.display = (tCollapsed.has(type) || cCollapsed.has(key)) ? 'none' : '';
+      });
+      return;
+    }
+
+    itemRows.forEach(r=>{
+      const type  = (r.getAttribute('data-type')||'').toLowerCase();
+      const color = (r.getAttribute('data-color')||'').toLowerCase();
+      const size  = r.children[0]?.textContent.toLowerCase() || '';
+      const match = type.includes(q) || color.includes(q) || size.includes(q);
+      r.style.display = match ? '' : 'none';
+    });
+
+    colorHdrs.forEach(h=>{
+      const type=h.getAttribute('data-type');
+      const color=h.getAttribute('data-color');
+      const hasVisible = Array.from(itemRows).some(r=>r.getAttribute('data-type')===type && r.getAttribute('data-color')===color && r.style.display!=='none');
+      h.style.display = hasVisible ? '' : 'none';
+    });
+
+    typeHdrs.forEach(h=>{
+      const type=h.getAttribute('data-type');
+      const hasVisible = Array.from(itemRows).some(r=>r.getAttribute('data-type')===type && r.style.display!=='none');
+      h.style.display = hasVisible ? '' : 'none';
+    });
+  };
+}
+
+// ---------- Manage Types/Sizes/Colors ----------
+function renderList(tableId, arr, onSave, inUseFn){
+  const tb = $(tableId+' tbody');
+  if(!tb) return;
+  tb.innerHTML = arr.map((v,i)=>`
+    <tr data-idx="${i}">
+      <td>${v}</td>
+      <td>
+        <button class="btn ghost btnEdit">Edit</button>
+        <button class="btn danger btnDelete">Delete</button>
+      </td>
+    </tr>`).join('');
+  tb.onclick = e=>{
+    const tr=e.target.closest('tr'); if(!tr) return;
+    const idx=Number(tr.dataset.idx);
+    if(e.target.classList.contains('btnDelete')){
+      const val = arr[idx];
+      if(inUseFn && inUseFn(val)){
+        alert('Cannot delete: still used by one or more products.');
+        return;
+      }
+      if(confirm('Delete this?')){ arr.splice(idx,1); onSave(arr); renderAll(); renderList(tableId,arr,onSave,inUseFn); }
+    }
+    if(e.target.classList.contains('btnEdit')){
+      const val=prompt('Rename:', arr[idx]); 
+      if(val && val.trim()){
+        arr[idx]=val.trim(); onSave(arr); renderAll(); renderList(tableId,arr,onSave,inUseFn);
+      }
+    }
+  };
+}
+
+function attrInUseType(val){ return P().some(p=>p.type===val); }
+function attrInUseSize(val){ return P().some(p=>p.size===val); }
+function attrInUseColor(val){ return P().some(p=>p.color===val); }
+
+function renderTypes(){ 
+  types = store.get(K_TYPES, types);
+  renderList('#typeTable', types, v=>{ types=v; store.set(K_TYPES, v); }, attrInUseType); 
+}
+function renderSizes(){ 
+  sizes = store.get(K_SIZES, sizes);
+  renderList('#sizeTable', sizes, v=>{ sizes=v; store.set(K_SIZES, v); }, attrInUseSize); 
+}
+function renderColors(){ 
+  colors = store.get(K_COLORS, colors);
+  renderList('#colorTable', colors, v=>{ colors=v; store.set(K_COLORS, v); }, attrInUseColor); 
+}
+
+$('#btnAddType')?.addEventListener('click', ()=>{
+  const v=$('#newType').value.trim(); if(v){
+    const list = store.get(K_TYPES, types);
+    if(!list.includes(v)) list.push(v);
+    list.sort(); store.set(K_TYPES, list); types=list;
+    $('#newType').value=''; renderTypes(); renderAll();
+  }
+});
+$('#btnAddSize')?.addEventListener('click', ()=>{
+  const v=$('#newSize').value.trim(); if(v){
+    const list = store.get(K_SIZES, sizes);
+    if(!list.includes(v)) list.push(v);
+    list.sort(); store.set(K_SIZES, list); sizes=list;
+    $('#newSize').value=''; renderSizes(); renderAll();
+  }
+});
+$('#btnAddColor')?.addEventListener('click', ()=>{
+  const v=$('#newColor').value.trim(); if(v){
+    const list = store.get(K_COLORS, colors);
+    if(!list.includes(v)) list.push(v);
+    list.sort(); store.set(K_COLORS, list); colors=list;
+    $('#newColor').value=''; renderColors(); renderAll();
+  }
+});
+
 // ---------- Render ----------
 function renderAll(){
-  // Global chip
+  normalizeProducts();
   renderOverviewTotals();
 
-  // Page-specific pieces (run only if elements exist)
   if($('#productTable')) renderProducts();
   if($('#invTable')) renderInvestments();
   if($('#salesTable')) renderSales();
   if($('#custTable')) { $('#custMonth') && ($('#custMonth').value = new Date().toISOString().slice(0,7)); renderCustomers(); }
   if($('#expTable')) renderExpenses();
 
-  // default date inputs
   $('#sale-date') && ($('#sale-date').value = today());
   $('#inv-date') && ($('#inv-date').value = today());
   $('#exp-date') && ($('#exp-date').value = today());
 }
 document.addEventListener('DOMContentLoaded', renderAll);
+
+// ----- Nav: mobile toggle + active tab -----
+function setupNav(){
+  const wrap   = document.querySelector('.tabs-wrap');
+  const toggle = document.getElementById('navToggle');
+  if (toggle && wrap){
+    toggle.addEventListener('click', ()=> wrap.classList.toggle('open'));
+  }
+
+  const page = (location.pathname.split('/').pop() || 'overview.html').toLowerCase();
+  document.querySelectorAll('.tabs a').forEach(a=>{
+    const href = (a.getAttribute('href')||'').toLowerCase();
+    if(href === page){
+      a.classList.add('active');
+    }else{
+      a.classList.remove('active');
+    }
+  });
+}
+
+// Redirect after login
+function doLogin(e){
+  e.preventDefault();
+  sessionStorage.setItem('pw_authed','1');
+  location.href = 'overview.html';
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderAll();
+  setupNav();
+});

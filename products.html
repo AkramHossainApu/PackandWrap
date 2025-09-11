@@ -7,12 +7,22 @@
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body id="page-products" class="bg-grad">
+
+  <!-- Floating figurines background -->
+  <div class="bg-figurines">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
   <!-- Navbar -->
   <header class="topbar">
-    <div class="brand-row">
-      <span class="brand">Pack &amp; Wrap</span>
-      <span class="chip" id="overallProfitChip">Overall 0 TK</span>
-    </div>
+  <div class="brand-row">
+    <span class="brand">Pack &amp; Wrap</span>
+    <span class="chip" id="overallProfitChip">Overall 0 TK</span>
+  </div>
+
+  <div class="tabs-wrap">
+    <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
     <nav class="tabs">
       <a href="overview.html">Overview</a>
       <a href="products.html">Products</a>
@@ -23,34 +33,50 @@
       <a href="backup.html">Backup</a>
       <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
     </nav>
-  </header>
+  </div>
+</header>
+
 
   <main class="container">
     <section class="section">
       <h2>Products</h2>
 
       <div class="card">
-        <h3>Catalog</h3>
-        <table class="table" id="productTable">
-          <thead>
-            <tr>
-              <th>Size</th>
-              <th>Color</th>
-              <th>Buy(1)</th>
-              <th>Sell(1)</th>
-              <th>Lowest</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <button id="btnAddProduct" class="btn primary" style="margin-top:15px;">➕ Add New Product</button>
+        <!-- Desktop: one line. Mobile: wraps cleanly. -->
+        <div class="toolbar">
+          <input id="productSearch" placeholder="Search type, size, or color…" />
+          <div class="actions">
+            <a href="manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
+            <button id="btnAddProduct" class="btn primary">➕ Add New Product</button>
+          </div>
+        </div>
+
+        <h3 style="margin:8px 0 10px">Catalog</h3>
+
+        <div class="table-wrap">
+          <table class="table" id="productTable">
+            <thead>
+              <tr>
+                <!-- Color lives as a subheading under each Type group -->
+                <th>Size</th>
+                <th>Buy (1)</th>
+                <th>Sell (1)</th>
+                <th>Lowest</th>
+                <th>Status</th>
+                <th style="min-width:260px">Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
 
   <script src="app.js"></script>
-  <script>if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';</script>
+  <script>
+    // Require auth
+    if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';
+  </script>
 </body>
 </html>

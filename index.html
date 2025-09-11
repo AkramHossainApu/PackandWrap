@@ -6,19 +6,29 @@
   <title>Pack & Wrap • Login</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
-<body class="bg-grad center">
-  <main class="card narrow">
-    <h1 class="brand">Pack &amp; Wrap</h1>
+<!-- Inline centering so this works even if .center isn't in CSS -->
+<body class="bg-grad" style="min-height:100vh; display:grid; place-items:center; position:relative;">
+  <!-- Floating figurines background -->
+  <div class="bg-figurines" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- Centered site title (always on top) -->
+  <div class="site-title">Pack &amp; Wrap</div>
+
+  <main class="card narrow" style="z-index:1">
+    <h1 class="brand">Welcome</h1>
     <p class="sub">Sales • Inventory • Profit</p>
 
-    <form id="loginForm" class="form vgap">
+    <form id="loginForm" class="form vgap" autocomplete="off">
       <div class="field">
-        <label>Username</label>
-        <input id="u" type="text" required autocomplete="username"/>
+        <label for="u">Username</label>
+        <input id="u" name="username" type="text" required autocomplete="username" />
       </div>
       <div class="field">
-        <label>Password</label>
-        <input id="p" type="password" required autocomplete="current-password"/>
+        <label for="p">Password</label>
+        <input id="p" name="password" type="password" required autocomplete="current-password" />
       </div>
       <button class="btn primary" type="submit">Login</button>
       <p id="loginErr" class="err hide">Invalid credentials</p>
@@ -28,13 +38,30 @@
   </main>
 
   <script>
-    async function sha(x){const e=new TextEncoder().encode(x);const b=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,'0')).join('');}
+    // Keep the error hidden until an actual failed submit
+    document.getElementById('loginErr').classList.add('hide');
+
+    // SHA-256 helper
+    async function sha(x){
+      const e=new TextEncoder().encode(x);
+      const b=await crypto.subtle.digest('SHA-256',e);
+      return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,'0')).join('');
+    }
+
+    // Demo credentials: user "Tasha", pass "123"
     const PASS_HASH="a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"; // sha256("123")
-    (async()=>{window._USER_HASH=await sha("Tasha");window._PASS_HASH=PASS_HASH;})();
+    (async()=>{ window._USER_HASH=await sha("Tasha"); window._PASS_HASH=PASS_HASH; })();
+
     document.getElementById('loginForm').addEventListener('submit',async e=>{
       e.preventDefault();
-      const uh=await sha(document.getElementById('u').value.trim());
-      const ph=await sha(document.getElementById('p').value);
+      const u = document.getElementById('u').value.trim();
+      const p = document.getElementById('p').value;
+
+      if(!u || !p){ return; } // let users type first!
+
+      const uh=await sha(u);
+      const ph=await sha(p);
+
       if(uh===window._USER_HASH && ph===window._PASS_HASH){
         sessionStorage.setItem('pw_authed','1');
         location.href='overview.html';

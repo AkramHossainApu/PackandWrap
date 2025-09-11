@@ -6,13 +6,21 @@
   <title>Pack & Wrap • Overview</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
-<body id="page-overview" class="bg-grad">
+<body class="bg-grad" id="page-overview">
+   <!-- Floating figurines background -->
+  <div class="bg-figurines" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
   <!-- Navbar -->
   <header class="topbar">
-    <div class="brand-row">
-      <span class="brand">Pack &amp; Wrap</span>
-      <span class="chip" id="overallProfitChip">Overall 0 TK</span>
-    </div>
+  <div class="brand-row">
+    <span class="brand">Pack &amp; Wrap</span>
+    <span class="chip" id="overallProfitChip">Overall 0 TK</span>
+  </div>
+
+  <div class="tabs-wrap">
+    <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
     <nav class="tabs">
       <a href="overview.html">Overview</a>
       <a href="products.html">Products</a>
@@ -23,49 +31,72 @@
       <a href="backup.html">Backup</a>
       <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
     </nav>
-  </header>
+  </div>
+</header>
+
+
 
   <main class="container">
     <section class="section">
       <h2>Overview</h2>
-      <div class="grid">
-        <!-- Totals -->
-        <div class="card">
-          <h3>Totals</h3>
-          <div class="stats">
-            <div><span class="muted">1st Investment</span><strong id="tInv1">0 TK</strong></div>
-            <div><span class="muted">1st Sales</span><strong id="tSell1">0 TK</strong></div>
-            <div><span class="muted">2nd Investment</span><strong id="tInv2">0 TK</strong></div>
-            <div><span class="muted">2nd Sales</span><strong id="tSell2">0 TK</strong></div>
-            <div><span class="muted">Boost/Expenses</span><strong id="tExp">0 TK</strong></div>
-            <div><span class="muted">Overall</span><strong id="tProfit">0 TK</strong></div>
-          </div>
-        </div>
+      <p class="sub">Quick glance at totals and trends.</p>
 
-        <!-- Highlights -->
+      <div class="stats">
         <div class="card">
-          <h3>Highlights</h3>
-          <ul id="overviewHighlights">
-            <li>Total Customers: <strong id="highlightCustomers">0</strong></li>
-            <li>Best Seller: <strong id="highlightBest">—</strong></li>
-            <li>Low Stock: <strong id="highlightLow">—</strong></li>
-          </ul>
+          <div class="muted xs">1st Investment</div>
+          <div id="tInv1">0 TK</div>
         </div>
+        <div class="card">
+          <div class="muted xs">2nd Investment</div>
+          <div id="tInv2">0 TK</div>
+        </div>
+        <div class="card">
+          <div class="muted xs">Sales (1st)</div>
+          <div id="tSell1">0 TK</div>
+        </div>
+        <div class="card">
+          <div class="muted xs">Sales (2nd)</div>
+          <div id="tSell2">0 TK</div>
+        </div>
+        <div class="card">
+          <div class="muted xs">Expenses</div>
+          <div id="tExp">0 TK</div>
+        </div>
+        <div class="card">
+          <div class="muted xs">Overall</div>
+          <div id="tProfit">0 TK</div>
+        </div>
+      </div>
 
-        <!-- Charts -->
+      <div class="grid" id="overviewHighlights" style="margin-top:16px;">
         <div class="card">
-          <h3>Daily Profit (after expenses)</h3>
-          <canvas id="chartProfit" height="120"></canvas>
+          <div class="muted xs">Customers</div>
+          <div id="highlightCustomers">0</div>
         </div>
         <div class="card">
-          <h3>Sales vs Investment (Monthly)</h3>
-          <canvas id="chartSalesInv" height="120"></canvas>
+          <div class="muted xs">Best Seller</div>
+          <div id="highlightBest">—</div>
+        </div>
+        <div class="card">
+          <div class="muted xs">Low Stock</div>
+          <div id="highlightLow">All OK</div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <div class="card">
+          <canvas id="chartProfit" style="width:100%;height:220px;"></canvas>
+        </div>
+        <div class="card">
+          <canvas id="chartSalesInv" style="width:100%;height:220px;"></canvas>
         </div>
       </div>
     </section>
   </main>
 
   <script src="app.js"></script>
-  <script>if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';</script>
+  <script>
+    if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';
+  </script>
 </body>
 </html>

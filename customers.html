@@ -9,10 +9,13 @@
 <body id="page-customers" class="bg-grad">
   <!-- Navbar -->
   <header class="topbar">
-    <div class="brand-row">
-      <span class="brand">Pack &amp; Wrap</span>
-      <span class="chip success" id="overallProfitChip">Overall 0 TK</span>
-    </div>
+  <div class="brand-row">
+    <span class="brand">Pack &amp; Wrap</span>
+    <span class="chip" id="overallProfitChip">Overall 0 TK</span>
+  </div>
+
+  <div class="tabs-wrap">
+    <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
     <nav class="tabs">
       <a href="overview.html">Overview</a>
       <a href="products.html">Products</a>
@@ -23,7 +26,9 @@
       <a href="backup.html">Backup</a>
       <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
     </nav>
-  </header>
+  </div>
+</header>
+
 
   <main class="container">
     <section class="section">

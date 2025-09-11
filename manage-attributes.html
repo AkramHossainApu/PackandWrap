@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Manage Attributes</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body id="page-manage" class="bg-grad">
+  <header class="topbar">
+  <div class="brand-row">
+    <span class="brand">Pack &amp; Wrap</span>
+    <span class="chip" id="overallProfitChip">Overall 0 TK</span>
+  </div>
+
+  <div class="tabs-wrap">
+    <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
+    <nav class="tabs">
+      <a href="overview.html">Overview</a>
+      <a href="products.html">Products</a>
+      <a href="investments.html">Investments</a>
+      <a href="sales.html">Sales</a>
+      <a href="customers.html">Customers</a>
+      <a href="boost.html">Boost</a>
+      <a href="backup.html">Backup</a>
+      <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+    </nav>
+  </div>
+</header>
+
+
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Manage Types / Sizes / Colors</h2>
+
+      <div class="card">
+        <h3>Types</h3>
+        <table class="table" id="typeTable"><tbody></tbody></table>
+        <div class="flex-between mt">
+          <input id="newType" placeholder="New type"/>
+          <button class="btn primary" id="btnAddType">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Sizes</h3>
+        <table class="table" id="sizeTable"><tbody></tbody></table>
+        <div class="flex-between mt">
+          <input id="newSize" placeholder="New size"/>
+          <button class="btn primary" id="btnAddSize">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Colors</h3>
+        <table class="table" id="colorTable"><tbody></tbody></table>
+        <div class="flex-between mt">
+          <input id="newColor" placeholder="New color"/>
+          <button class="btn primary" id="btnAddColor">Add</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';
+    document.addEventListener("DOMContentLoaded", ()=>{
+      renderTypes();
+      renderSizes();
+      renderColors();
+    });
+  </script>
+</body>
+</html>
