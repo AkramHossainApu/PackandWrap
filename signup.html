@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Sign Up</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+    }
+    .auth-wrap{ width:100%; max-width:480px; padding:20px; }
+    .auth-header{ text-align:center; margin-bottom:8px; }
+    .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
+    .field{ display:grid; gap:6px; margin-bottom:12px; }
+    .field .row{ display:flex; gap:8px; align-items:center; }
+    .field .row input{ flex:1; }
+    .helper{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .actions{ display:grid; gap:10px; margin-top:12px; }
+    .err-banner, .ok-banner{
+      display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; font-size:14px;
+    }
+    .err-banner{ border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; }
+    .ok-banner{ border:1px solid #16a34a; background:rgba(34,197,94,.1); color:#86efac; }
+    .err-banner.show, .ok-banner.show{ display:block; }
+    .strength{ height:6px; border-radius:8px; background:var(--surface); overflow:hidden; }
+    .strength > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,#f87171,#fbbf24,#34d399); transition:width .25s ease; }
+    .loading{ opacity:.7; pointer-events:none; }
+    .brand{ 
+      font-size:26px;
+      font-weight:900;
+      letter-spacing:.5px;
+      text-align:center;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    .btn.alt {
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      box-shadow:0 6px 18px rgba(196,181,253,.18);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-figurines" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <main class="card auth-wrap" style="z-index:1">
+    <div class="auth-header">
+      <h1 class="brand">Pack &amp; Wrap</h1>
+      <p class="auth-sub">Choose a username and a strong password to get started.</p>
+    </div>
+
+    <form id="signupForm" class="form vgap" autocomplete="off" novalidate>
+      <div class="field">
+        <label for="su">Username</label>
+        <input id="su" type="text" required autocomplete="username" placeholder="Choose a username"/>
+        <div class="helper">Letters & numbers only are recommended.</div>
+      </div>
+
+      <div class="field">
+        <label for="sp">Password</label>
+        <div class="row">
+          <input id="sp" type="password" required autocomplete="new-password" placeholder="Create a strong password"/>
+          <button class="btn alt" id="togglePw" type="button" aria-label="Show password">👁</button>
+        </div>
+        <div class="strength" aria-hidden="true"><i id="pwBar"></i></div>
+        <div class="helper" id="pwTip">Use 8+ characters with a mix of letters & numbers.</div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="signupBtn" type="submit">Sign Up</button>
+        <div class="divider"><span>or</span></div>
+        <div style="text-align:center; font-size:13px; color:var(--muted);">Have an account?</div>
+        <a class="btn alt" href="index.html">Login</a>
+      </div>
+
+      <p id="signupErr" class="err-banner" role="alert" aria-live="assertive"></p>
+      <p id="signupOk" class="ok-banner" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { addUser } from './app.js';
+    const form = document.getElementById('signupForm');
+    const u = document.getElementById('su');
+    const p = document.getElementById('sp');
+    const btn = document.getElementById('signupBtn');
+    const err = document.getElementById('signupErr');
+    const ok  = document.getElementById('signupOk');
+    const toggle = document.getElementById('togglePw');
+    const bar = document.getElementById('pwBar');
+    const tip = document.getElementById('pwTip');
+    u.focus();
+    function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
+    function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
+    function clearBanners(){ err.classList.remove('show'); ok.classList.remove('show'); }
+    toggle.addEventListener('click', ()=>{
+      const isPw = p.type === 'password';
+      p.type = isPw ? 'text' : 'password';
+      toggle.textContent = isPw ? '🙈' : '👁';
+      toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+      p.focus();
+    });
+    function strengthScore(s){ let score=0; if(s.length>=8)score++; if(/[A-Z]/.test(s))score++; if(/[0-9]/.test(s))score++; if(/[^A-Za-z0-9]/.test(s))score++; return Math.min(score,4); }
+    p.addEventListener('input', ()=>{ const s=strengthScore(p.value); bar.style.width=`${(s/4)*100}%`; tip.textContent = s<3 ? 'Try adding numbers & symbols for a stronger password.' : 'Nice! Your password looks strong.'; });
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); clearBanners();
+      const username=u.value.trim(); const password=p.value;
+      if(!username||!password){ showErr('Please fill both username and password.'); return; }
+      if(password.length<6){ showErr('Password must be at least 6 characters.'); return; }
+      form.classList.add('loading'); btn.textContent='Creating…';
+      try{ await addUser(username,password); showOk('Account created successfully. You can now log in.'); u.value=''; p.value=''; bar.style.width='0%'; }
+      catch(e){ console.error(e); showErr('That username may already be taken. Try a different one.'); }
+      finally{ form.classList.remove('loading'); btn.textContent='Sign Up'; }
+    });
+  </script>
+</body>
+</html>

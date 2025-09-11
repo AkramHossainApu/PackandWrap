@@ -5,69 +5,121 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Login</title>
   <link rel="stylesheet" href="styles.css"/>
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+    }
+    .auth-wrap{ width:100%; max-width:460px; padding:20px; }
+    .auth-header{ text-align:center; margin-bottom:8px; }
+    .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
+    .field{ display:grid; gap:6px; margin-bottom:12px; }
+    .field .row{ display:flex; gap:8px; align-items:center; }
+    .field .row input{ flex:1; }
+    .helper{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .actions{ display:grid; gap:10px; margin-top:12px; }
+    .err-banner{
+      display:none;
+      margin:12px 0 0; padding:10px 12px; border-radius:12px;
+      border:1px solid #ef4444; background:rgba(239,68,68,.1);
+      color:#fecaca; font-size:14px;
+    }
+    .err-banner.show{ display:block; }
+    .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
+    .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
+    .xs-center{ text-align:center; font-size:12px; color:var(--muted); margin-top:8px; }
+    .loading{ opacity:.7; pointer-events:none; }
+    .brand{ 
+      font-size:26px;
+      font-weight:900;
+      letter-spacing:.5px;
+      text-align:center;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    .btn.alt {
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      box-shadow:0 6px 18px rgba(196,181,253,.18);
+    }
+  </style>
 </head>
-<!-- Inline centering so this works even if .center isn't in CSS -->
-<body class="bg-grad" style="min-height:100vh; display:grid; place-items:center; position:relative;">
+
+<body>
   <!-- Floating figurines background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Centered site title (always on top) -->
-  <div class="site-title">Pack &amp; Wrap</div>
+  <main class="card auth-wrap" style="z-index:1">
+    <div class="auth-header">
+      <h1 class="brand">Pack &amp; Wrap</h1>
+      <p class="auth-sub">Welcome back — manage your Sales • Inventory • Profit</p>
+    </div>
 
-  <main class="card narrow" style="z-index:1">
-    <h1 class="brand">Welcome</h1>
-    <p class="sub">Sales • Inventory • Profit</p>
-
-    <form id="loginForm" class="form vgap" autocomplete="off">
+    <form id="loginForm" class="form vgap" autocomplete="off" novalidate>
       <div class="field">
         <label for="u">Username</label>
-        <input id="u" name="username" type="text" required autocomplete="username" />
+        <input id="u" name="username" type="text" required autocomplete="username" inputmode="text" placeholder="e.g. tasha"/>
       </div>
+
       <div class="field">
         <label for="p">Password</label>
-        <input id="p" name="password" type="password" required autocomplete="current-password" />
+        <div class="row">
+          <input id="p" name="password" type="password" required autocomplete="current-password" placeholder="Your password"/>
+          <button class="btn alt" id="togglePw" type="button" aria-label="Show password">👁</button>
+        </div>
       </div>
-      <button class="btn primary" type="submit">Login</button>
-      <p id="loginErr" class="err hide">Invalid credentials</p>
-    </form>
 
-    <footer class="muted xs">Note: static login only obfuscates credentials (not real security).</footer>
+      <div class="actions">
+        <button class="btn primary" id="loginBtn" type="submit">Login</button>
+        <div class="divider"><span>or</span></div>
+        <div style="text-align:center; font-size:13px; color:var(--muted);">Don’t have an account?</div>
+        <a class="btn alt" href="signup.html">Signup</a>
+      </div>
+
+      <p id="loginErr" class="err-banner" role="alert" aria-live="assertive"></p>
+    </form>
   </main>
 
-  <script>
-    // Keep the error hidden until an actual failed submit
-    document.getElementById('loginErr').classList.add('hide');
-
-    // SHA-256 helper
-    async function sha(x){
-      const e=new TextEncoder().encode(x);
-      const b=await crypto.subtle.digest('SHA-256',e);
-      return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,'0')).join('');
-    }
-
-    // Demo credentials: user "Tasha", pass "123"
-    const PASS_HASH="a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"; // sha256("123")
-    (async()=>{ window._USER_HASH=await sha("Tasha"); window._PASS_HASH=PASS_HASH; })();
-
-    document.getElementById('loginForm').addEventListener('submit',async e=>{
-      e.preventDefault();
-      const u = document.getElementById('u').value.trim();
-      const p = document.getElementById('p').value;
-
-      if(!u || !p){ return; } // let users type first!
-
-      const uh=await sha(u);
-      const ph=await sha(p);
-
-      if(uh===window._USER_HASH && ph===window._PASS_HASH){
-        sessionStorage.setItem('pw_authed','1');
-        location.href='overview.html';
-      }else{
-        document.getElementById('loginErr').classList.remove('hide');
-      }
+  <script type="module">
+    import { loginUser } from './app.js';
+    const form = document.getElementById('loginForm');
+    const err  = document.getElementById('loginErr');
+    const btn  = document.getElementById('loginBtn');
+    const pw   = document.getElementById('p');
+    const toggle = document.getElementById('togglePw');
+    const user = document.getElementById('u');
+    user.focus();
+    toggle.addEventListener('click', ()=>{
+      const isPw = pw.type === 'password';
+      pw.type = isPw ? 'text' : 'password';
+      toggle.textContent = isPw ? '🙈' : '👁';
+      toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+      pw.focus();
+    });
+    function showError(msg){ err.textContent = msg; err.classList.add('show'); }
+    function clearError(){ err.textContent = ''; err.classList.remove('show'); }
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); clearError();
+      const u = user.value.trim(); const p = pw.value;
+      if(!u || !p){ showError('Please enter both username and password.'); return; }
+      form.classList.add('loading'); btn.textContent = 'Logging in…';
+      try{
+        const ok = await loginUser(u, p);
+        if(ok){ sessionStorage.setItem('pw_authed','1'); sessionStorage.setItem('pw_user', u); location.href='overview.html'; }
+        else{ showError('Invalid username or password. Please try again.'); }
+      }catch(e){ console.error(e); showError('Unable to reach the server. Check your connection and try again.'); }
+      finally{ form.classList.remove('loading'); btn.textContent = 'Login'; }
     });
   </script>
 </body>

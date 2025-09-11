@@ -5,44 +5,80 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Products</title>
   <link rel="stylesheet" href="styles.css"/>
+
+  <style>
+    /* -----------------------------
+       Products (page-specific polish)
+       ----------------------------- */
+    .page-head{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+    .page-head h2{ margin:0; font-size:22px; }
+    .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
+
+    /* Toolbar overrides for this page */
+    .toolbar{
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      margin-bottom:14px; --toolbar-h:64px;
+    }
+    .toolbar input{ flex:1; min-width:220px; }
+    .toolbar .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+    /* Table headings context */
+    .catalog-title{ margin:4px 0 10px; font-size:16px; font-weight:600; color:#e7dff1; }
+
+    /* Responsive tweaks */
+    @media(max-width:760px){
+      .toolbar{ flex-direction:column; align-items:stretch; }
+      .toolbar .actions{ justify-content:space-between; width:100%; }
+      .catalog-title{ text-align:center; }
+    }
+  </style>
 </head>
+
 <body id="page-products" class="bg-grad">
 
   <!-- Floating figurines background -->
-  <div class="bg-figurines">
+  <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
   <!-- Navbar -->
   <header class="topbar">
-  <div class="brand-row">
-    <span class="brand">Pack &amp; Wrap</span>
-    <span class="chip" id="overallProfitChip">Overall 0 TK</span>
-  </div>
+    <div class="brand-row">
+      <span class="brand">Pack &amp; Wrap</span>
+      <span class="chip" id="overallProfitChip">Overall 0 TK</span>
+    </div>
 
-  <div class="tabs-wrap">
-    <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
-    <nav class="tabs">
-      <a href="overview.html">Overview</a>
-      <a href="products.html">Products</a>
-      <a href="investments.html">Investments</a>
-      <a href="sales.html">Sales</a>
-      <a href="customers.html">Customers</a>
-      <a href="boost.html">Boost</a>
-      <a href="backup.html">Backup</a>
-      <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
-    </nav>
-  </div>
-</header>
+    <div class="tabs-wrap">
+      <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
+      <nav class="tabs">
+        <a href="overview.html">Overview</a>
+        <a href="products.html">Products</a>
+        <a href="investments.html">Investments</a>
+        <a href="sales.html">Sales</a>
+        <a href="customers.html">Customers</a>
+        <a href="boost.html">Boost</a>
+        <a href="backup.html">Backup</a>
+        <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+      </nav>
+    </div>
+  </header>
 
-
+  <!-- Content -->
   <main class="container">
     <section class="section">
-      <h2>Products</h2>
+      <div class="page-head">
+        <div>
+          <h2>Products</h2>
+          <p class="sub">Manage your catalog, pricing, and stock levels.</p>
+        </div>
+      </div>
 
       <div class="card">
-        <!-- Desktop: one line. Mobile: wraps cleanly. -->
+        <!-- Toolbar -->
         <div class="toolbar">
           <input id="productSearch" placeholder="Search type, size, or color…" />
           <div class="actions">
@@ -51,13 +87,13 @@
           </div>
         </div>
 
-        <h3 style="margin:8px 0 10px">Catalog</h3>
+        <div class="catalog-title">Catalog</div>
 
+        <!-- Products table -->
         <div class="table-wrap">
           <table class="table" id="productTable">
             <thead>
               <tr>
-                <!-- Color lives as a subheading under each Type group -->
                 <th>Size</th>
                 <th>Buy (1)</th>
                 <th>Sell (1)</th>
@@ -73,9 +109,11 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <!-- Use module app.js so Firebase works -->
+  <script type="module" src="app.js"></script>
+
+  <!-- Require auth -->
   <script>
-    // Require auth
     if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';
   </script>
 </body>
