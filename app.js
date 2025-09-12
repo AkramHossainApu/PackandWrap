@@ -1,14 +1,11 @@
-// app.js (ES module) — Firestore + per-user storage
-
 // ---------- Firebase Init ----------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  getFirestore, doc, setDoc, getDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-// Your config
 const firebaseConfig = {
-  apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
+  apiKey: "AIzaSyD35RFbmf7V RPF1o_VbyEZ1K7wqAYeBhzA".replace(' ',''),
   authDomain: "packandwrap-web.firebaseapp.com",
   projectId: "packandwrap-web",
   storageBucket: "packandwrap-web.firebasestorage.app",
@@ -20,20 +17,118 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
 // ---------- Helpers ----------
-const $  = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const today = () => new Date().toISOString().slice(0,10);
 const TK = n => `${Number(n||0).toLocaleString('en-US')} TK`;
 
-// Current user (by username)
-function uid(){ return sessionStorage.getItem('pw_user') || null; }
+// Robust SHA-256 with fallback for non-secure contexts
+export async function sha(input){
+  const enc = typeof TextEncoder !== 'undefined'
+    ? new TextEncoder()
+    : { encode: s => new Uint8Array(unescape(encodeURIComponent(s)).split('').map(c=>c.charCodeAt(0))) };
 
-// SHA-256 helper (used for password hashing)
-export async function sha(x){
-  const e=new TextEncoder().encode(x);
-  const b=await crypto.subtle.digest('SHA-256',e);
-  return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,'0')).join('');
+  const cryptoObj = (globalThis.crypto || globalThis.msCrypto);
+  if (cryptoObj?.subtle?.digest) {
+    const data = enc.encode(input);
+    const buf = await cryptoObj.subtle.digest('SHA-256', data);
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ----- Pure JS SHA-256 fallback -----
+  function rightRotate(n, x){ return (x>>>n) | (x<<(32-n)); }
+  function toWords(bytes){
+    const words = [];
+    for (let i=0; i<bytes.length; i+=4){
+      words.push((bytes[i]<<24) | (bytes[i+1]<<16) | (bytes[i+2]<<8) | (bytes[i+3]));
+    }
+    return words;
+  }
+  function toBytes(str){
+    const u8 = enc.encode(str);
+    return Array.from(u8);
+  }
+  const K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  let H0=0x6a09e667, H1=0xbb67ae85, H2=0x3c6ef372, H3=0xa54ff53a,
+      H4=0x510e527f, H5=0x9b05688c, H6=0x1f83d9ab, H7=0x5be0cd19;
+
+  // Preprocess
+  const bytes = toBytes(input);
+  const bitLen = bytes.length * 8;
+  bytes.push(0x80);
+  while ((bytes.length % 64) !== 56) bytes.push(0);
+  for (let i=7; i>=0; i--) bytes.push((bitLen >>> (i*8)) & 0xff);
+
+  // Process chunks
+  for (let i=0; i<bytes.length; i+=64){
+    const chunk = bytes.slice(i, i+64);
+    const w = new Array(64);
+    const words = toWords(chunk);
+    for (let t=0; t<16; t++) w[t] = words[t];
+    for (let t=16; t<64; t++){
+      const s0 = rightRotate(7, w[t-15]) ^ rightRotate(18, w[t-15]) ^ (w[t-15]>>>3);
+      const s1 = rightRotate(17, w[t-2]) ^ rightRotate(19, w[t-2]) ^ (w[t-2]>>>10);
+      w[t] = (w[t-16] + s0 + w[t-7] + s1) | 0;
+    }
+    let a=H0,b=H1,c=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
+    for (let t=0; t<64; t++){
+      const S1 = rightRotate(6,e) ^ rightRotate(11,e) ^ rightRotate(25,e);
+      const ch = (e & f) ^ (~e & g);
+      const temp1 = (h + S1 + ch + K[t] + w[t]) | 0;
+      const S0 = rightRotate(2,a) ^ rightRotate(13,a) ^ rightRotate(22,a);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = (S0 + maj) | 0;
+
+      h=g; g=f; f=e; e=(d + temp1) | 0;
+      d=c; c=b; b=a; a=(temp1 + temp2) | 0;
+    }
+    H0=(H0+a)|0; H1=(H1+b)|0; H2=(H2+c)|0; H3=(H3+d)|0;
+    H4=(H4+e)|0; H5=(H5+f)|0; H6=(H6+g)|0; H7=(H7+h)|0;
+  }
+  const hs = [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+  return hs;
 }
+
+// ---------- Firestore-backed KV Store (with local cache) ----------
+const KV_COLLECTION = "kv";
+const store = {
+  get(k, d){
+    try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
+  },
+  async set(k, v){
+    localStorage.setItem(k, JSON.stringify(v));
+    try {
+      await setDoc(doc(db, KV_COLLECTION, k), { value: v });
+    } catch (err) {
+      // Surface permission errors clearly in UI consoles
+      console.warn("Firestore set error:", err?.code || err);
+      throw err;
+    }
+  },
+  subscribe(k, defaultVal){
+    const refDoc = doc(db, KV_COLLECTION, k);
+    onSnapshot(refDoc, snap=>{
+      if(snap.exists()){
+        const val = snap.data().value;
+        localStorage.setItem(k, JSON.stringify(val));
+      }else if(defaultVal !== undefined){
+        localStorage.setItem(k, JSON.stringify(defaultVal));
+      }
+      renderAll();
+    }, err=>{
+      console.warn("Firestore subscribe error:", err);
+    });
+  }
+};
 
 // ---------- Keys ----------
 const K_PRODUCTS   = 'pw_products';
@@ -46,105 +141,47 @@ const K_TYPES      = 'pw_attr_types';
 const K_SIZES      = 'pw_attr_sizes';
 const K_COLORS     = 'pw_attr_colors';
 
-// ---------- Cloud-backed store (per user, Firestore) ----------
-/*
-  Data model (per user):
-  /users/{username} {
-     username, passwordHash, createdAt
-     (subcollection) /kv/{key} { value: <any>, updatedAt }
-  }
-*/
-const store = {
-  get(k, d){
-    try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
-  },
-  async set(k, v){
-    localStorage.setItem(k, JSON.stringify(v));
-    const id = uid();
-    if(!id) return; // not logged in, local only
-    const ref = doc(db, 'users', id, 'kv', k);
-    await setDoc(ref, { value: v, updatedAt: serverTimestamp() }, { merge: true });
-  },
-  // Keep a local shadow up-to-date
-  subscribe(k, defaultVal){
-    const id = uid();
-    if(!id) return;
-    const ref = doc(db, 'users', id, 'kv', k);
-    onSnapshot(ref, snap=>{
-      if(snap.exists()){
-        const v = snap.data().value;
-        localStorage.setItem(k, JSON.stringify(v));
-      }else if(defaultVal !== undefined){
-        localStorage.setItem(k, JSON.stringify(defaultVal));
-      }
-      // re-render whatever page we are on
-      renderAll();
-    });
-  }
-};
-
-// ---------- Users (Signup + Login in Firestore) ----------
+// ---------- Users (Firestore `users` collection) ----------
 export async function addUser(username, password){
   const passHash = await sha(password);
-  const userRef = doc(db, 'users', username);
-  const exists  = await getDoc(userRef);
-  if(exists.exists()){
-    throw new Error('username-taken');
+  const userRef  = doc(db, "users", username);
+  const snap     = await getDoc(userRef);
+  if(snap.exists()){
+    throw new Error("Username already exists");
   }
-  // Create profile doc
   await setDoc(userRef, {
     username,
     passwordHash: passHash,
-    createdAt: serverTimestamp()
+    createdAt: new Date().toISOString()
   });
-
-  // Initialize empty KV docs so first load is smooth
-  const initKeys = {
-    [K_PRODUCTS]: [],
-    [K_INV]: [],
-    [K_SALES]: [],
-    [K_EXP]: [],
-    [K_COLLAPSE]: [],
-    [K_COLLCOLOR]: [],
-    [K_TYPES]: [],
-    [K_SIZES]: [],
-    [K_COLORS]: []
-  };
-  await Promise.all(Object.entries(initKeys).map(([k,v])=>{
-    return setDoc(doc(db,'users',username,'kv',k), { value:v, updatedAt: serverTimestamp() });
-  }));
 }
 
 export async function loginUser(username, password){
   const passHash = await sha(password);
-  const userRef = doc(db, 'users', username);
-  const snap    = await getDoc(userRef);
+  const userRef  = doc(db, "users", username);
+  const snap     = await getDoc(userRef);
   if(!snap.exists()) return false;
   return snap.data().passwordHash === passHash;
 }
 
-// ---------- Seed (local defaults so UI isn't empty pre-sync) ----------
+// ---------- Seed (local cache only) ----------
 function seed(){
-  if(!store.get(K_PRODUCTS)) store.set(K_PRODUCTS, []);
-  if(!store.get(K_INV)) store.set(K_INV,[]);
-  if(!store.get(K_SALES)) store.set(K_SALES,[]);
-  if(!store.get(K_EXP)) store.set(K_EXP,[]);
-  if(!store.get(K_COLLAPSE)) store.set(K_COLLAPSE,[]);
-  if(!store.get(K_COLLCOLOR)) store.set(K_COLLCOLOR,[]);
-  if(!store.get(K_TYPES))  store.set(K_TYPES, []);
-  if(!store.get(K_SIZES))  store.set(K_SIZES, []);
-  if(!store.get(K_COLORS)) store.set(K_COLORS, []);
+  const may = (k)=>{ if(!store.get(k)) localStorage.setItem(k, JSON.stringify([])); };
+  may(K_PRODUCTS); may(K_INV); may(K_SALES); may(K_EXP);
+  may(K_COLLAPSE); may(K_COLLCOLOR); may(K_TYPES); may(K_SIZES); may(K_COLORS);
 }
 seed();
 
-// Live sync the keys we use on all pages
-function startSync(){
-  if(!uid()) return;
-  [K_PRODUCTS,K_INV,K_SALES,K_EXP,K_COLLAPSE,K_COLLCOLOR,K_TYPES,K_SIZES,K_COLORS].forEach(k=>{
-    store.subscribe(k, store.get(k, Array.isArray(store.get(k))?[]:store.get(k)));
-  });
-}
-startSync();
+// Live-sync from Firestore -> local cache
+store.subscribe(K_PRODUCTS,   []);
+store.subscribe(K_INV,        []);
+store.subscribe(K_SALES,      []);
+store.subscribe(K_EXP,        []);
+store.subscribe(K_COLLAPSE,   []);
+store.subscribe(K_COLLCOLOR,  []);
+store.subscribe(K_TYPES,      []);
+store.subscribe(K_SIZES,      []);
+store.subscribe(K_COLORS,     []);
 
 // ---------- Shortcuts ----------
 const P   = ()=>store.get(K_PRODUCTS,[]);
@@ -156,7 +193,6 @@ const setCollapsedTypes  = v => store.set(K_COLLAPSE, v);
 const collapsedColors    = () => store.get(K_COLLCOLOR,[]);
 const setCollapsedColors = v => store.set(K_COLLCOLOR, v);
 
-// Attributes
 let types  = store.get(K_TYPES, []);
 let sizes  = store.get(K_SIZES, []);
 let colors = store.get(K_COLORS, []);
@@ -379,6 +415,7 @@ document.addEventListener('click', async (e)=>{
 
   const tr = e.target.closest('tr');
 
+  // Toggle TYPE
   const tBtn = e.target.closest('.btnToggleType');
   if(tBtn){
     const type=tBtn.getAttribute('data-type');
@@ -389,6 +426,7 @@ document.addEventListener('click', async (e)=>{
     return;
   }
 
+  // Toggle COLOR
   const cBtn = e.target.closest('.btnToggleColor');
   if(cBtn){
     const type=cBtn.getAttribute('data-type');
@@ -401,6 +439,7 @@ document.addEventListener('click', async (e)=>{
     return;
   }
 
+  // Edit
   const editBtn = e.target.closest('.btnEdit');
   if(editBtn){
     const arr = P();
@@ -427,12 +466,14 @@ document.addEventListener('click', async (e)=>{
     return;
   }
 
+  // Cancel
   const cancelBtn = e.target.closest('.btnCancel');
   if(cancelBtn){
     renderProducts();
     return;
   }
 
+  // Delete by stable key
   const delBtn = e.target.closest('.btnDelete');
   if(delBtn){
     const arr = P();
@@ -446,6 +487,7 @@ document.addEventListener('click', async (e)=>{
     return;
   }
 
+  // Save (new or edit)
   const saveBtn = e.target.closest('.btnSave');
   if(saveBtn){
     const mode   = tr.getAttribute('data-mode');
@@ -465,7 +507,7 @@ document.addEventListener('click', async (e)=>{
     const buy = Number(tr.querySelector('.inBuy')?.value);
     const sell = Number(tr.querySelector('.inSell')?.value);
     const lowestRaw = tr.querySelector('.inLowest')?.value ?? '';
-    const lowest = lowestRaw === '' ? null : Number(lowestRaw);
+       const lowest = lowestRaw === '' ? null : Number(lowestRaw);
 
     if(Number.isNaN(buy) || Number.isNaN(sell)){
       alert('Please enter valid Buy and Sell prices.');
@@ -504,23 +546,297 @@ document.addEventListener('click', async (e)=>{
   }
 });
 
-// ---------- Investments, Sales, Charts, Customers, Expenses ----------
+// ---------- Investments & Inventory ----------
 function costFor(key,packs){ const p=findProduct(key); return p? p.buy1*100*packs : 0; }
-function renderInvestments(){ /* unchanged from your last version, uses store.set(...) */ }
-function defaultSell100(key){ const p=findProduct(key); return p? p.sell1*100 : 0; }
-function estProfit(key,packs,price100){ const p=findProduct(key); if(!p) return 0; return price100*packs - (p.buy1*100*packs); }
-function renderSales(){ /* unchanged from your last version, uses store.set(...) */ }
-function drawLine(){ /* unchanged (omitted here for brevity) */ }
-function drawBars(){ /* unchanged (omitted here for brevity) */ }
-function renderCharts(){ /* unchanged (omitted here for brevity) */ }
-function renderCustomers(){ /* unchanged (omitted here for brevity) */ }
-function renderExpenses(){ /* unchanged (uses store.set(...)) */ }
+function renderInvestments(){
+  const tb = $('#invTable tbody'); if(!tb) return;
 
-// ---------- CSV / Backup (unchanged behavior, now per user via store.set) ----------
-function parseCSV(text){ /* unchanged */ }
+  $('#invForm')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const key=$('#inv-product').value, packs=Number($('#inv-packs').value);
+    const batch=Number($('#inv-batch').value), date=$('#inv-date').value || today();
+    const list=INV(); list.push({key,packs,batch,date,cost:costFor(key,packs)});
+    await store.set(K_INV,list); e.target.reset(); renderAll();
+  });
+
+  tb.innerHTML = INV().map((r,i)=>`
+    <tr><td>${r.date}</td><td>${r.batch==1?'1st':'2nd'}</td><td>${r.key}</td>
+      <td>${r.packs}</td><td>${TK(r.cost)}</td>
+      <td><button class="btn danger" data-rm="${i}">Delete</button></td></tr>`).join('');
+
+  tb.addEventListener('click', async e=>{
+    const idx=e.target.getAttribute('data-rm'); if(idx==null) return;
+    const list=INV(); list.splice(Number(idx),1); await store.set(K_INV,list); renderAll();
+  });
+
+  const ib = $('#inventoryTable tbody');
+  if(ib){
+    const keys = allKeys();
+    ib.innerHTML = keys.map(k=>{
+      const purchased=INV().filter(r=>r.key===k).reduce((a,b)=>a+b.packs,0);
+      const sold=S().filter(r=>r.key===k).reduce((a,b)=>a+b.packs,0);
+      const [size,color]=k.split(' | ');
+      return `<tr><td>${size}</td><td>${color}</td><td>${purchased}</td><td>${sold}</td><td>${purchased-sold}</td></tr>`;
+    }).join('');
+  }
+}
+
+// ---------- Sales ----------
+function defaultSell100(key){ const p=findProduct(key); return p? p.sell1*100 : 0; }
+function estProfit(key,packs,price100){
+  const p=findProduct(key); if(!p) return 0;
+  return price100*packs - (p.buy1*100*packs);
+}
+function renderSales(){
+  if(!$('#salesTable')) return;
+
+  $('#saleUseDefault')?.addEventListener('click', ()=>{
+    const key=$('#sale-product').value; $('#sale-price100').value = defaultSell100(key);
+  });
+
+  $('#saleForm')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const key=$('#sale-product').value;
+    const packs=Number($('#sale-packs').value);
+    const price100= Number($('#sale-price100').value || defaultSell100(key));
+    const date=$('#sale-date').value || today();
+    const batch=Number($('#sale-batch').value);
+    const customer=$('#sale-customer').value.trim();
+    const contact=$('#sale-contact').value.trim();
+    const pay=$('#sale-pay').value;
+
+    const list=S();
+    list.push({key,packs,price100,date,batch,customer,contact,pay,estProfit:estProfit(key,packs,price100)});
+    await store.set(K_SALES,list);
+    e.target.reset(); renderAll();
+  });
+
+  const month = $('#monthFilter')?.value;
+  const rows = S().filter(s=>!month || s.date.startsWith(month))
+                  .sort((a,b)=>b.date.localeCompare(a.date));
+  $('#salesTable tbody').innerHTML = rows.map((s,i)=>`
+    <tr>
+      <td>${s.date}</td><td>${s.customer}</td><td>${s.key}</td>
+      <td>${s.packs}</td><td>${TK(s.price100)}</td>
+      <td>${TK(s.price100*s.packs)}</td><td>${TK(s.estProfit)}</td>
+      <td>${s.batch==1?'1st':'2nd'}</td><td>${s.pay}</td>
+      <td><button class="btn danger" data-del="${i}">Delete</button></td>
+    </tr>`).join('');
+
+  $('#monthFilter')?.addEventListener('change', renderSales);
+
+  $('#salesTable tbody').addEventListener('click', async e=>{
+    const idx=e.target.getAttribute('data-del'); if(idx==null) return;
+    const list=S(); list.splice(Number(idx),1); await store.set(K_SALES,list); renderAll();
+  });
+
+  if($('#recentSales')){
+    const recent = S().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+    $('#recentSales tbody').innerHTML = recent.map(s=>`
+      <tr><td>${s.date}</td><td>${s.customer}</td><td>${s.key}</td>
+      <td>${s.packs}</td><td>${TK(s.price100)}</td><td>${TK(s.estProfit)}</td></tr>`).join('');
+  }
+
+  if($('#chartProfit')) renderCharts();
+}
+
+// ---------- Charts ----------
+function drawLine(canvasId, labels, values, title){
+  const c=document.getElementById(canvasId); if(!c) return;
+  const ctx=c.getContext('2d');
+  const W=c.width=c.clientWidth, H=c.height=c.clientHeight, pad=30;
+  ctx.clearRect(0,0,W,H);
+  const max=Math.max(1,...values); const xstep=(W-pad*2)/Math.max(1,values.length-1);
+  const y=v=> H-pad - (v/max)*(H-pad*2);
+  ctx.beginPath();
+  values.forEach((v,i)=>{const X=pad+i*xstep,Y=y(v); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)}); ctx.strokeStyle="#fff"; ctx.stroke();
+  ctx.fillStyle="#ddd"; ctx.fillText(title,10,14);
+}
+function drawBars(canvasId, labels, aVals, bVals, title){
+  const c=document.getElementById(canvasId); if(!c) return;
+  const ctx=c.getContext('2d');
+  const W=c.width=c.clientWidth, H=c.height=c.clientHeight, pad=30;
+  ctx.clearRect(0,0,W,H);
+  const max=Math.max(1,...aVals,...bVals), n=labels.length;
+  const bw=(W-pad*2)/Math.max(1,n)*.8, step=(W-pad*2)/Math.max(1,n), y=v=>H-pad-(v/max)*(H-pad*2);
+  ctx.fillStyle="#ddd";
+  for(let i=0;i<n;i++){
+    const x=pad+i*step;
+    ctx.fillRect(x, y(aVals[i]), bw/2, H-pad - y(aVals[i]));
+    ctx.fillRect(x+bw/2+4, y(bVals[i]), bw/2, H-pad - y(bVals[i]));
+  }
+  ctx.fillText(title,10,14);
+}
+function renderCharts(){
+  const dates = Array.from(new Set([...S().map(s=>s.date), ...EXP().map(e=>e.date)])).sort();
+  const profitByDay = dates.map(d=>{
+    const p=S().filter(s=>s.date===d).reduce((a,b)=>a+b.estProfit,0);
+    const e=EXP().filter(x=>x.date===d).reduce((a,b)=>a+b.amount,0);
+    return p-e;
+  });
+  drawLine('chartProfit', dates, profitByDay, 'Daily Profit (after expenses)');
+
+  const months = Array.from(new Set([...S().map(s=>s.date.slice(0,7)), ...INV().map(i=>i.date.slice(0,7))])).sort();
+  const salesM = months.map(m=>S().filter(s=>s.date.startsWith(m)).reduce((a,b)=>a+b.price100*b.packs,0));
+  const invM   = months.map(m=>INV().filter(i=>i.date.startsWith(m)).reduce((a,b)=>a+b.cost,0));
+  drawBars('chartSalesInv', months, salesM, invM, 'Sales vs Investment (Monthly)');
+}
+
+// ---------- Customers ----------
+function renderCustomers(){
+  if(!$('#custTable')) return;
+  const month = $('#custMonth').value || new Date().toISOString().slice(0,7);
+  const rows = S().filter(s=>s.date.startsWith(month));
+  const sizesList = store.get(K_SIZES, []);
+  const grouped = {};
+  rows.forEach(s=>{
+    const [size] = s.key.split(' | ');
+    const k = `${s.date}|${s.customer}`;
+    if(!grouped[k]) grouped[k]={date:s.date, name:s.customer, total:0, sizes:{}};
+    grouped[k].total += s.price100*s.packs;
+    grouped[k].sizes[size]=(grouped[k].sizes[size]||0)+s.packs;
+  });
+  let i=1;
+  $('#custTable tbody').innerHTML = Object.values(grouped)
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .map(g=>{
+      const cells = sizesList.map(sz=> g.sizes[sz]? `${g.sizes[sz]} (x100)` : '0').join('</td><td>');
+      return `<tr><td>${g.date}</td><td>${i++}</td><td>${g.name}</td><td>${cells}</td><td>${TK(g.total)}</td></tr>`;
+    }).join('');
+  $('#custMonth')?.addEventListener('change', renderCustomers);
+}
+
+// ---------- Expenses / Boost ----------
+function renderExpenses(){
+  if(!$('#expTable')) return;
+  $('#expForm')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const type=$('#exp-type').value, desc=$('#exp-desc').value.trim();
+    const date=$('#exp-date').value||today(), amount=Number($('#exp-amount').value||0);
+    const list=EXP(); list.push({type,desc,date,amount}); await store.set(K_EXP,list);
+    e.target.reset(); renderAll();
+  });
+  $('#expAddRange')?.addEventListener('click', async ()=>{
+    const from=new Date($('#exp-from').value), to=new Date($('#exp-to').value);
+    const per=Number($('#exp-perday').value||0); if(!from||!to||!per) return alert('Set From, To and Per day.');
+    const list=EXP(); const d=new Date(from);
+    while(d<=to){ list.push({type:'Boost',desc:'Daily boost',date:d.toISOString().slice(0,10),amount:per}); d.setDate(d.getDate()+1); }
+    await store.set(K_EXP,list); renderAll();
+  });
+  $('#expTable tbody').innerHTML = EXP().sort((a,b)=>b.date.localeCompare(a.date)).map((e,i)=>`
+    <tr><td>${e.date}</td><td>${e.type}</td><td>${e.desc||''}</td><td>${TK(e.amount)}</td>
+    <td><button class="btn danger" data-x="${i}">Delete</button></td></tr>`).join('');
+  $('#expTable tbody').addEventListener('click', async e=>{
+    const i=e.target.getAttribute('data-x'); if(i==null) return;
+    const list=EXP(); list.splice(Number(i),1); await store.set(K_EXP,list); renderAll();
+  });
+}
+
+// ---------- Backup / Import ----------
+$('#btnExport')?.addEventListener('click', ()=>{
+  const data={products:P(),investments:INV(),sales:S(),expenses:EXP()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`packwrap-backup-${today()}.json`; a.click();
+});
+$('#fileImport')?.addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return; const txt=await f.text(); const data=JSON.parse(txt);
+  if(confirm('Import JSON and overwrite current data?')){
+    if(data.products)   await store.set(K_PRODUCTS,data.products);
+    if(data.investments)await store.set(K_INV,data.investments);
+    if(data.sales)      await store.set(K_SALES,data.sales);
+    if(data.expenses)   await store.set(K_EXP,data.expenses);
+    renderAll();
+  }
+});
+
+// ---------- CSV Import ----------
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/); const head=lines.shift().split(',').map(h=>h.trim());
+  return lines.filter(Boolean).map(l=>{
+    const cells=l.split(',').map(x=>x.trim()); const o={}; head.forEach((h,i)=>o[h]=cells[i]); return o;
+  });
+}
+$('#csvFile')?.addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return; const type=$('#csvType').value;
+  const rows=parseCSV(await f.text());
+  if(type==='products'){
+    const items=P();
+    rows.forEach(r=>{
+      const obj={type:safe(r.type), size:safe(r.size), color:safe(r.color), buy1:Number(r.buy1), sell1:Number(r.sell1), lowest:r.lowest?Number(r.lowest):null};
+      const i=items.findIndex(x=>uniqueKey(x)===uniqueKey(obj));
+      if(i>-1) items[i]=obj; else items.push(obj);
+    });
+    await store.set(K_PRODUCTS, items);
+    normalizeProducts();
+  }else if(type==='investments'){
+    const inv=INV();
+    rows.forEach(r=>{
+      const key=`${r.size} | ${r.color}`, packs=Number(r.packs);
+      inv.push({date:r.date,batch:Number(r.batch),key,packs,cost:costFor(key,packs)});
+    }); await store.set(K_INV,inv);
+  }else if(type==='sales'){
+    const list=S();
+    rows.forEach(r=>{
+      const key=`${r.size} | ${r.color}`, packs=Number(r.packs), price100=Number(r.price100)||defaultSell100(key);
+      list.push({date:r.date,customer:r.customer,key,packs,price100,batch:Number(r.batch),pay:r.pay||'Other',contact:'',estProfit:estProfit(key,packs,price100)});
+    }); await store.set(K_SALES,list);
+  }else if(type==='expenses'){
+    const ex=EXP(); rows.forEach(r=>ex.push({date:r.date,type:r.type||'Other',desc:r.description||'',amount:Number(r.amountTK)})); await store.set(K_EXP,ex);
+  }
+  renderAll(); alert('CSV import complete.');
+});
 
 // ---------- Search / Filter ----------
-function attachProductSearch(){ /* unchanged */ }
+function attachProductSearch(){
+  const input = $('#productSearch');
+  if(!input) return;
+  input.oninput = ()=>{
+    const q = input.value.trim().toLowerCase();
+
+    const itemRows   = $$('#productTable tbody tr[data-row="item"]');
+    const typeHdrs   = $$('#productTable tbody tr[data-group="type"]');
+    const colorHdrs  = $$('#productTable tbody tr[data-group="color"]');
+
+    const tCollapsed = new Set(collapsedTypes());
+    const cCollapsed = new Set(collapsedColors());
+
+    if(!q){
+      typeHdrs.forEach(h=>h.style.display='');
+      colorHdrs.forEach(h=>{
+        const type=h.getAttribute('data-type');
+        h.style.display = tCollapsed.has(type) ? 'none' : '';
+      });
+      itemRows.forEach(r=>{
+        const type=r.getAttribute('data-type');
+        const color=r.getAttribute('data-color');
+        const key=`${type}||${color}`;
+        r.style.display = (tCollapsed.has(type) || cCollapsed.has(key)) ? 'none' : '';
+      });
+      return;
+    }
+
+    itemRows.forEach(r=>{
+      const type  = (r.getAttribute('data-type')||'').toLowerCase();
+      const color = (r.getAttribute('data-color')||'').toLowerCase();
+      const size  = r.children[0]?.textContent.toLowerCase() || '';
+      const match = type.includes(q) || color.includes(q) || size.includes(q);
+      r.style.display = match ? '' : 'none';
+    });
+
+    colorHdrs.forEach(h=>{
+      const type=h.getAttribute('data-type');
+      const color=h.getAttribute('data-color');
+      const hasVisible = Array.from(itemRows).some(r=>r.getAttribute('data-type')===type && r.getAttribute('data-color')===color && r.style.display!=='none');
+      h.style.display = hasVisible ? '' : 'none';
+    });
+
+    typeHdrs.forEach(h=>{
+      const type=h.getAttribute('data-type');
+      const hasVisible = Array.from(itemRows).some(r=>r.getAttribute('data-type')===type && r.style.display!=='none');
+      h.style.display = hasVisible ? '' : 'none';
+    });
+  };
+}
 
 // ---------- Manage Types/Sizes/Colors ----------
 function renderList(tableId, arr, onSave, inUseFn){
@@ -545,8 +861,7 @@ function renderList(tableId, arr, onSave, inUseFn){
       }
       if(confirm('Delete this?')){
         arr.splice(idx,1); onSave(arr);
-        const key = tableId.includes('type')?K_TYPES:tableId.includes('size')?K_SIZES:K_COLORS;
-        await store.set(key, arr);
+        await store.set(tableId.includes('type')?K_TYPES:tableId.includes('size')?K_SIZES:K_COLORS, arr);
         renderAll(); renderList(tableId,arr,onSave,inUseFn);
       }
     }
@@ -554,8 +869,7 @@ function renderList(tableId, arr, onSave, inUseFn){
       const val=prompt('Rename:', arr[idx]); 
       if(val && val.trim()){
         arr[idx]=val.trim(); onSave(arr);
-        const key = tableId.includes('type')?K_TYPES:tableId.includes('size')?K_SIZES:K_COLORS;
-        await store.set(key, arr);
+        await store.set(tableId.includes('type')?K_TYPES:tableId.includes('size')?K_SIZES:K_COLORS, arr);
         renderAll(); renderList(tableId,arr,onSave,inUseFn);
       }
     }
@@ -604,7 +918,7 @@ $('#btnAddColor')?.addEventListener('click', async ()=>{
   }
 });
 
-// ---------- Render ----------
+// ---------- Render & Nav ----------
 function renderAll(){
   normalizeProducts();
   renderOverviewTotals();
@@ -615,19 +929,12 @@ function renderAll(){
   if($('#custTable')) { $('#custMonth') && ($('#custMonth').value = new Date().toISOString().slice(0,7)); renderCustomers(); }
   if($('#expTable')) renderExpenses();
 
-  // Manage Attributes page — auto render if tables present
-  if($('#typeTable') || $('#sizeTable') || $('#colorTable')){
-    renderTypes();
-    renderSizes();
-    renderColors();
-  }
-
   $('#sale-date') && ($('#sale-date').value = today());
   $('#inv-date') && ($('#inv-date').value = today());
   $('#exp-date') && ($('#exp-date').value = today());
 }
 
-// ----- Nav: mobile toggle + active tab -----
+// Mobile nav + active tab
 function setupNav(){
   const wrap   = document.querySelector('.tabs-wrap');
   const toggle = document.getElementById('navToggle');
@@ -638,7 +945,11 @@ function setupNav(){
   const page = (location.pathname.split('/').pop() || 'overview.html').toLowerCase();
   document.querySelectorAll('.tabs a').forEach(a=>{
     const href = (a.getAttribute('href')||'').toLowerCase();
-    if(href === page) a.classList.add('active'); else a.classList.remove('active');
+    if(href === page){
+      a.classList.add('active');
+    }else{
+      a.classList.remove('active');
+    }
   });
 }
 
