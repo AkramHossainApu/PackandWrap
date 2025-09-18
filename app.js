@@ -1,3 +1,11 @@
+// ================================
+// app.js  (ES module)
+// - Firestore storage
+// - Canonical usernames (trim+lower)
+// - Robust SHA-256 (with fallback)
+// - Exposes renderTypes/renderSizes/renderColors on window for non-module page
+// ================================
+
 // ---------- Firebase Init ----------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
@@ -5,7 +13,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD35RFbmf7V RPF1o_VbyEZ1K7wqAYeBhzA".replace(' ',''),
+  // keep your key as-is; removing the stray space just in case
+  apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
   authDomain: "packandwrap-web.firebaseapp.com",
   projectId: "packandwrap-web",
   storageBucket: "packandwrap-web.firebasestorage.app",
@@ -22,7 +31,7 @@ const $$ = s => document.querySelectorAll(s);
 const today = () => new Date().toISOString().slice(0,10);
 const TK = n => `${Number(n||0).toLocaleString('en-US')} TK`;
 
-// Robust SHA-256 with fallback for non-secure contexts
+// Robust SHA-256 with fallback (for older/non-secure contexts)
 export async function sha(input){
   const enc = typeof TextEncoder !== 'undefined'
     ? new TextEncoder()
@@ -36,17 +45,13 @@ export async function sha(input){
   }
 
   // ----- Pure JS SHA-256 fallback -----
-  function rightRotate(n, x){ return (x>>>n) | (x<<(32-n)); }
+  function R(n, x){ return (x>>>n) | (x<<(32-n)); }
   function toWords(bytes){
     const words = [];
     for (let i=0; i<bytes.length; i+=4){
       words.push((bytes[i]<<24) | (bytes[i+1]<<16) | (bytes[i+2]<<8) | (bytes[i+3]));
     }
     return words;
-  }
-  function toBytes(str){
-    const u8 = enc.encode(str);
-    return Array.from(u8);
   }
   const K = [
     0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -61,42 +66,42 @@ export async function sha(input){
   let H0=0x6a09e667, H1=0xbb67ae85, H2=0x3c6ef372, H3=0xa54ff53a,
       H4=0x510e527f, H5=0x9b05688c, H6=0x1f83d9ab, H7=0x5be0cd19;
 
-  // Preprocess
-  const bytes = toBytes(input);
+  const bytes = Array.from((typeof TextEncoder !== 'undefined' ? new TextEncoder() : {encode:s=>new Uint8Array(unescape(encodeURIComponent(s)).split('').map(c=>c.charCodeAt(0))) }).encode(input));
   const bitLen = bytes.length * 8;
   bytes.push(0x80);
   while ((bytes.length % 64) !== 56) bytes.push(0);
   for (let i=7; i>=0; i--) bytes.push((bitLen >>> (i*8)) & 0xff);
 
-  // Process chunks
   for (let i=0; i<bytes.length; i+=64){
     const chunk = bytes.slice(i, i+64);
     const w = new Array(64);
     const words = toWords(chunk);
     for (let t=0; t<16; t++) w[t] = words[t];
     for (let t=16; t<64; t++){
-      const s0 = rightRotate(7, w[t-15]) ^ rightRotate(18, w[t-15]) ^ (w[t-15]>>>3);
-      const s1 = rightRotate(17, w[t-2]) ^ rightRotate(19, w[t-2]) ^ (w[t-2]>>>10);
+      const s0 = R(7,w[t-15]) ^ R(18,w[t-15]) ^ (w[t-15]>>>3);
+      const s1 = R(17,w[t-2]) ^ R(19,w[t-2]) ^ (w[t-2]>>>10);
       w[t] = (w[t-16] + s0 + w[t-7] + s1) | 0;
     }
     let a=H0,b=H1,c=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
     for (let t=0; t<64; t++){
-      const S1 = rightRotate(6,e) ^ rightRotate(11,e) ^ rightRotate(25,e);
+      const S1 = R(6,e) ^ R(11,e) ^ R(25,e);
       const ch = (e & f) ^ (~e & g);
       const temp1 = (h + S1 + ch + K[t] + w[t]) | 0;
-      const S0 = rightRotate(2,a) ^ rightRotate(13,a) ^ rightRotate(22,a);
+      const S0 = R(2,a) ^ R(13,a) ^ R(22,a);
       const maj = (a & b) ^ (a & c) ^ (b & c);
       const temp2 = (S0 + maj) | 0;
-
       h=g; g=f; f=e; e=(d + temp1) | 0;
       d=c; c=b; b=a; a=(temp1 + temp2) | 0;
     }
     H0=(H0+a)|0; H1=(H1+b)|0; H2=(H2+c)|0; H3=(H3+d)|0;
     H4=(H4+e)|0; H5=(H5+f)|0; H6=(H6+g)|0; H7=(H7+h)|0;
   }
-  const hs = [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
-  return hs;
+  return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
+
+// Username canonicalization (prevents case/space login mismatches)
+function canonicalUsername(u){ return (u||'').trim().toLowerCase(); }
+function displayUsername(u){  return (u||'').trim(); }
 
 // ---------- Firestore-backed KV Store (with local cache) ----------
 const KV_COLLECTION = "kv";
@@ -106,27 +111,18 @@ const store = {
   },
   async set(k, v){
     localStorage.setItem(k, JSON.stringify(v));
-    try {
-      await setDoc(doc(db, KV_COLLECTION, k), { value: v });
-    } catch (err) {
-      // Surface permission errors clearly in UI consoles
-      console.warn("Firestore set error:", err?.code || err);
-      throw err;
-    }
+    await setDoc(doc(db, KV_COLLECTION, k), { value: v });
   },
   subscribe(k, defaultVal){
     const refDoc = doc(db, KV_COLLECTION, k);
     onSnapshot(refDoc, snap=>{
       if(snap.exists()){
-        const val = snap.data().value;
-        localStorage.setItem(k, JSON.stringify(val));
+        localStorage.setItem(k, JSON.stringify(snap.data().value));
       }else if(defaultVal !== undefined){
         localStorage.setItem(k, JSON.stringify(defaultVal));
       }
       renderAll();
-    }, err=>{
-      console.warn("Firestore subscribe error:", err);
-    });
+    }, err=> console.warn("Firestore subscribe error:", err));
   }
 };
 
@@ -142,26 +138,44 @@ const K_SIZES      = 'pw_attr_sizes';
 const K_COLORS     = 'pw_attr_colors';
 
 // ---------- Users (Firestore `users` collection) ----------
+// Doc id = canonical username (lowercase, trimmed)
+// { username: (display), usernameLower, passwordHash, createdAt }
 export async function addUser(username, password){
-  const passHash = await sha(password);
-  const userRef  = doc(db, "users", username);
+  const id       = canonicalUsername(username);
+  const display  = displayUsername(username);
+  if (!id) throw new Error('Username required');
+
+  const userRef  = doc(db, "users", id);
   const snap     = await getDoc(userRef);
-  if(snap.exists()){
-    throw new Error("Username already exists");
-  }
+  if(snap.exists()) throw new Error("Username already exists");
+
+  const passHash = await sha(password);
   await setDoc(userRef, {
-    username,
+    username: display,
+    usernameLower: id,
     passwordHash: passHash,
     createdAt: new Date().toISOString()
   });
 }
 
 export async function loginUser(username, password){
+  const id       = canonicalUsername(username);
   const passHash = await sha(password);
-  const userRef  = doc(db, "users", username);
-  const snap     = await getDoc(userRef);
+
+  // Try canonical doc id first
+  let ref  = doc(db, "users", id);
+  let snap = await getDoc(ref);
+
+  // Backward-compat: if not found, try exact typed username (legacy accounts)
+  if(!snap.exists()){
+    const legacyRef = doc(db, "users", displayUsername(username));
+    const legacySnap = await getDoc(legacyRef);
+    if (legacySnap.exists()) snap = legacySnap;
+  }
+
   if(!snap.exists()) return false;
-  return snap.data().passwordHash === passHash;
+  const data = snap.data();
+  return data.passwordHash === passHash;
 }
 
 // ---------- Seed (local cache only) ----------
@@ -507,7 +521,7 @@ document.addEventListener('click', async (e)=>{
     const buy = Number(tr.querySelector('.inBuy')?.value);
     const sell = Number(tr.querySelector('.inSell')?.value);
     const lowestRaw = tr.querySelector('.inLowest')?.value ?? '';
-       const lowest = lowestRaw === '' ? null : Number(lowestRaw);
+    const lowest = lowestRaw === '' ? null : Number(lowestRaw);
 
     if(Number.isNaN(buy) || Number.isNaN(sell)){
       alert('Please enter valid Buy and Sell prices.');
@@ -892,6 +906,9 @@ function renderColors(){
   colors = store.get(K_COLORS, colors);
   renderList('#colorTable', colors, v=>{ colors=v; }, attrInUseColor); 
 }
+
+// expose for manage-attributes.html (non-module page calling these)
+Object.assign(window, { renderTypes, renderSizes, renderColors });
 
 $('#btnAddType')?.addEventListener('click', async ()=>{
   const v=$('#newType').value.trim(); if(v){
