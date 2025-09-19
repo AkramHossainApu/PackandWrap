@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Overview</title>
   <link rel="stylesheet" href="styles.css"/>
-
   <style>
     .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .page-head .title-wrap{ display:flex; flex-direction:column; gap:4px; }
@@ -97,7 +96,7 @@
 
   <script src="app.js"></script>
   <script>
-    // URL polish & auth gate
+    // Auth gate + pretty URL
     (function(){
       const authed = sessionStorage.getItem('pw_authed') === '1';
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
@@ -107,20 +106,13 @@
         location.replace('index.html');
         return;
       }
-      // Present pretty path while staying on the static file
       const want = `/${encodeURIComponent(uid)}/overview`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
     })();
 
-    // Micro-anim on KPI updates
-    const pulse = el => { el?.classList.add('pulse'); setTimeout(()=>el?.classList.remove('pulse'), 180); };
-    const ids = ['tInv1','tInv2','tSell1','tSell2','tExp','tProfit','highlightCustomers','highlightBest','highlightLow'];
-    const obs = new MutationObserver(m=>m.forEach(mm=>{ if(mm.type==='childList'){ const el=mm.target; if(el.hasAttribute('data-animate')) pulse(el); } }));
-    ids.forEach(id=>{ const n = document.getElementById(id); if(n) obs.observe(n, { childList:true }); });
-
-    // Logout → clear and go to /login with clean URL
+    // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -130,6 +122,8 @@
       history.replaceState({}, '', '/login');
       location.replace('index.html');
     });
+
+    // (Your overview data/render code stays as-is)
   </script>
 </body>
 </html>

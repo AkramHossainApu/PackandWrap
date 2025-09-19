@@ -1,8 +1,7 @@
 // ================================
 // app.js (ES module)
-// - Adds loginUser() that uses a public auth doc (users_auth/{usernameLower})
-// - addUser() also stores that auth doc
-// - No URL params are ever used for auth
+// - Signup writes to users, userIDs, users_index, users_auth
+// - Login reads users_auth (public read allowed by rules)
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -33,7 +32,7 @@ export async function sha(input){
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // Tiny fallback (not used in modern browsers)
+  // Lightweight fallback (shouldn’t be used on modern browsers)
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
@@ -57,6 +56,7 @@ export async function addUser(username, password, userId){
   if (!unameLower) throw new Error('Username required');
   if (!userId) throw new Error('UserID required');
 
+  // Check availability via public registry
   const uidRef  = doc(db, "userIDs", userId);
   const uidSnap = await getDoc(uidRef);
   if (uidSnap.exists()) throw new Error("UserID already exists");
@@ -64,21 +64,18 @@ export async function addUser(username, password, userId){
   const passHash = await sha(password);
   const now = new Date().toISOString();
 
-  // create user
   await setDoc(doc(db, "users", userId), {
     userId, username: unameDisp, usernameLower: unameLower,
     passwordHash: passHash, createdAt: now
   });
 
-  // reserve the userId
   await setDoc(uidRef, { usernameLower: unameLower, createdAt: now });
 
-  // index by username
   const idxRef = doc(db, "users_index", unameLower);
   try { await updateDoc(idxRef, { userIds: arrayUnion(userId) }); }
   catch { await setDoc(idxRef, { userIds: [userId] }, { merge: true }); }
 
-  // auth doc for public read during login (username -> userId + hash)
+  // Public auth doc for login (username -> userId + pw hash)
   await setDoc(doc(db, "users_auth", unameLower), {
     userId, passwordHash: passHash, createdAt: now
   });
@@ -89,13 +86,17 @@ export async function loginUser(username, password){
   const unameLower = canonicalUsername(username);
   if (!unameLower) return { ok:false };
 
-  // Read the public auth doc (no creds in URL, no unauth read of /users)
-  const authDoc = await getDoc(doc(db, "users_auth", unameLower));
-  if (!authDoc.exists()) return { ok:false };
+  try {
+    const authDoc = await getDoc(doc(db, "users_auth", unameLower));
+    if (!authDoc.exists()) return { ok:false };
 
-  const { userId, passwordHash } = authDoc.data();
-  const passHash = await sha(password);
-  if (passHash !== passwordHash) return { ok:false };
+    const { userId, passwordHash } = authDoc.data();
+    const passHash = await sha(password);
+    if (passHash !== passwordHash) return { ok:false };
 
-  return { ok:true, userId };
+    return { ok:true, userId };
+  } catch (e) {
+    console.error("loginUser error:", e);
+    throw e; // let UI show an error banner
+  }
 }

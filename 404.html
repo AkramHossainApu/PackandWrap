@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Loading…</title>
+    <meta name="robots" content="noindex">
+    <style>
+      html,body{height:100%} body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#eee;font-family:system-ui,Segoe UI,Roboto,Arial}
+      .box{opacity:.9;text-align:center}
+    </style>
+  </head>
+  <body>
+    <div class="box">Loading…</div>
+    <script>
+      // Preserve the requested path and hand it to index.html via ?p=
+      // Example: /abc/overview -> /index.html?p=%2Fabc%2Foverview
+      (function(){
+        var path = location.pathname + location.search + location.hash;
+        var target = '/index.html?p=' + encodeURIComponent(path);
+        // Use replace so the back button doesn't land on 404 again
+        location.replace(target);
+      })();
+    </script>
+  </body>
+</html>

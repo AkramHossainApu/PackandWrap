@@ -81,7 +81,30 @@
     const user = document.getElementById('u');
     const remember = document.getElementById('remember');
 
-    // ——— Clean URL on the login page ———
+    // ------- SPA Fallback handling (from 404.html -> index.html?p=/path) -------
+    (function handleSpaFallback(){
+      const params = new URLSearchParams(location.search);
+      const p = params.get('p'); // original desired path (e.g. "/abc/overview" or "/login")
+      if (p) {
+        try {
+          const want = decodeURIComponent(p);
+          if (want === '/' || want === '/login') {
+            history.replaceState({}, '', '/login'); // show clean login URL
+          } else if (/\/overview$/.test(want)) {
+            // Show pretty URL in the bar, then go load the file
+            history.replaceState({}, '', want);
+            location.replace('overview.html');
+            return;
+          } else {
+            history.replaceState({}, '', '/login');
+          }
+        } catch(_) {
+          history.replaceState({}, '', '/login');
+        }
+      }
+    })();
+
+    // ——— Clean URL on first load ———
     if (location.pathname.endsWith('/index.html') || location.pathname === '/' ) {
       history.replaceState({}, '', '/login');
     }
@@ -90,7 +113,7 @@
     if (localStorage.getItem('pw_authed') === '1' && localStorage.getItem('pw_userId')) {
       sessionStorage.setItem('pw_authed', '1');
       sessionStorage.setItem('pw_userId', localStorage.getItem('pw_userId'));
-      // We'll rewrite to /{uid}/overview inside overview.html after it loads
+      history.replaceState({}, '', `/${encodeURIComponent(localStorage.getItem('pw_userId'))}/overview`);
       location.href = 'overview.html';
     }
 
@@ -106,7 +129,7 @@
     function clearError(){ err.textContent = ''; err.classList.remove('show'); }
 
     form.addEventListener('submit', async e=>{
-      e.preventDefault(); clearError();  // <— no GET submission, so no creds in URL
+      e.preventDefault(); clearError();  // no GET — creds never go in the URL
       const u = user.value.trim(); const p = pw.value;
       if(!u || !p){ showError('Please enter both username and password.'); return; }
 
@@ -114,22 +137,19 @@
       try{
         const res = await loginUser(u, p);
         if(res.ok){
-          // store session (no secrets in URL)
           sessionStorage.setItem('pw_authed','1');
           sessionStorage.setItem('pw_userId', res.userId);
           if(remember.checked){
             localStorage.setItem('pw_authed','1');
             localStorage.setItem('pw_userId', res.userId);
           }
-          // Make the URL pretty before we navigate (visual polish)
           history.pushState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
-          // Load the actual page file (will rewrite URL again on load to keep pretty)
           location.href = 'overview.html';
         } else {
           showError('Invalid username or password. Please try again.');
         }
       }catch(e){
-        console.error(e);
+        console.error("Login failed:", e);
         showError('Unable to reach the server. Check your connection and try again.');
       } finally {
         form.classList.remove('loading'); btn.textContent = 'Login';
