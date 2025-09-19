@@ -1,10 +1,16 @@
 // ================================
 // app.js  (ES module)
+// - Forces HTTPS (fixes incognito/HTTP hash mismatch)
 // - Firestore storage
 // - Canonical usernames (trim+lower)
 // - Robust SHA-256 (with fallback)
 // - Exposes renderTypes/renderSizes/renderColors on window for non-module page
 // ================================
+
+// ---------- HTTPS redirect (critical for consistent hashing) ----------
+if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+  location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+}
 
 // ---------- Firebase Init ----------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -13,7 +19,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  // keep your key as-is; removing the stray space just in case
   apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
   authDomain: "packandwrap-web.firebaseapp.com",
   projectId: "packandwrap-web",
@@ -909,31 +914,6 @@ function renderColors(){
 
 // expose for manage-attributes.html (non-module page calling these)
 Object.assign(window, { renderTypes, renderSizes, renderColors });
-
-$('#btnAddType')?.addEventListener('click', async ()=>{
-  const v=$('#newType').value.trim(); if(v){
-    const list = store.get(K_TYPES, types);
-    if(!list.includes(v)) list.push(v);
-    list.sort(); await store.set(K_TYPES, list); types=list;
-    $('#newType').value=''; renderTypes(); renderAll();
-  }
-});
-$('#btnAddSize')?.addEventListener('click', async ()=>{
-  const v=$('#newSize').value.trim(); if(v){
-    const list = store.get(K_SIZES, sizes);
-    if(!list.includes(v)) list.push(v);
-    list.sort(); await store.set(K_SIZES, list); sizes=list;
-    $('#newSize').value=''; renderSizes(); renderAll();
-  }
-});
-$('#btnAddColor')?.addEventListener('click', async ()=>{
-  const v=$('#newColor').value.trim(); if(v){
-    const list = store.get(K_COLORS, colors);
-    if(!list.includes(v)) list.push(v);
-    list.sort(); await store.set(K_COLORS, list); colors=list;
-    $('#newColor').value=''; renderColors(); renderAll();
-  }
-});
 
 // ---------- Render & Nav ----------
 function renderAll(){
