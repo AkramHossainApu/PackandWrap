@@ -100,10 +100,11 @@
   <script>
     // ---------- Auth gate & pretty URL ----------
     (function(){
-      const authed = sessionStorage.getItem('pw_authed') === '1';
+      // Accept session OR remembered login
+      const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
-      // Not logged in → go to /login (index.html handles restoring pretty URL)
+      // Not logged in → go to /login
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('index.html');
@@ -134,7 +135,7 @@
       location.replace('index.html');
     });
 
-    // (Your data-fetch/render logic can run below; no DB reads required here for URL/auth)
+    // (Your data-fetch/render logic can run below)
   </script>
 </body>
 </html>
