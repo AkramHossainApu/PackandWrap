@@ -1,7 +1,8 @@
 // ================================
-// app.js (ES module)
-// - Signup writes to users, userIDs, users_index, users_auth
-// - Login reads users_auth (public read allowed by rules)
+// app.js (ES module) — Single Collection Model
+// - Only /users/{userId} top-level
+// - Per-user data under /users/{userId}/kv/*
+// - Login uses userId (unique id you picked at signup)
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -10,7 +11,7 @@ if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion
+  getFirestore, doc, setDoc, getDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -23,7 +24,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+export const db  = getFirestore(app);
 
 // ---------- Helpers ----------
 export async function sha(input){
@@ -32,7 +33,7 @@ export async function sha(input){
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // Lightweight fallback (shouldn’t be used on modern browsers)
+  // Minimal fallback (unlikely to run on modern browsers)
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
@@ -46,57 +47,63 @@ export async function sha(input){
   return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
 
-function canonicalUsername(u){ return (u||'').trim().toLowerCase(); }
-function displayUsername(u){  return (u||'').trim(); }
+const canonicalUsername = u => (u||'').trim().toLowerCase();
+const displayUsername   = u => (u||'').trim();
 
-// ---------------- Signup ----------------
+// ------------- SIGNUP -------------
 export async function addUser(username, password, userId){
   const unameLower = canonicalUsername(username);
   const unameDisp  = displayUsername(username);
   if (!unameLower) throw new Error('Username required');
-  if (!userId) throw new Error('UserID required');
+  if (!userId) throw new Error('User ID required');
 
-  // Check availability via public registry
-  const uidRef  = doc(db, "userIDs", userId);
-  const uidSnap = await getDoc(uidRef);
-  if (uidSnap.exists()) throw new Error("UserID already exists");
+  // Availability = does /users/{userId} already exist?
+  const userRef = doc(db, "users", userId);
+  const exists  = (await getDoc(userRef)).exists();
+  if (exists) throw new Error("User ID already exists");
 
   const passHash = await sha(password);
   const now = new Date().toISOString();
 
-  await setDoc(doc(db, "users", userId), {
-    userId, username: unameDisp, usernameLower: unameLower,
-    passwordHash: passHash, createdAt: now
-  });
-
-  await setDoc(uidRef, { usernameLower: unameLower, createdAt: now });
-
-  const idxRef = doc(db, "users_index", unameLower);
-  try { await updateDoc(idxRef, { userIds: arrayUnion(userId) }); }
-  catch { await setDoc(idxRef, { userIds: [userId] }, { merge: true }); }
-
-  // Public auth doc for login (username -> userId + pw hash)
-  await setDoc(doc(db, "users_auth", unameLower), {
-    userId, passwordHash: passHash, createdAt: now
+  await setDoc(userRef, {
+    userId,
+    username: unameDisp,
+    usernameLower: unameLower,
+    passwordHash: passHash,
+    createdAt: now
   });
 }
 
-// ---------------- Login -----------------
-export async function loginUser(username, password){
-  const unameLower = canonicalUsername(username);
-  if (!unameLower) return { ok:false };
+// ------------- LOGIN (by User ID) -------------
+export async function loginUserById(userId, password){
+  if(!userId) return { ok:false };
+  const userRef = doc(db, "users", userId);
+  const snap = await getDoc(userRef);
+  if(!snap.exists()) return { ok:false };
+  const data = snap.data();
+  const passHash = await sha(password);
+  if (data.passwordHash !== passHash) return { ok:false };
+  return { ok:true, userId };
+}
 
-  try {
-    const authDoc = await getDoc(doc(db, "users_auth", unameLower));
-    if (!authDoc.exists()) return { ok:false };
-
-    const { userId, passwordHash } = authDoc.data();
-    const passHash = await sha(password);
-    if (passHash !== passwordHash) return { ok:false };
-
-    return { ok:true, userId };
-  } catch (e) {
-    console.error("loginUser error:", e);
-    throw e; // let UI show an error banner
+// ------------- Simple per-user KV stored *inside* users/{userId} -------------
+export const store = {
+  get(k, d){
+    try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
+  },
+  async setUser(userId, key, value){
+    localStorage.setItem(`${userId}_${key}`, JSON.stringify(value));
+    // write under /users/{userId}/kv/{key}
+    await setDoc(doc(db, "users", userId, "kv", key), { value });
+  },
+  subscribeUser(userId, key, defaultVal){
+    const refDoc = doc(db, "users", userId, "kv", key);
+    return onSnapshot(refDoc, snap=>{
+      if(snap.exists()){
+        localStorage.setItem(`${userId}_${key}`, JSON.stringify(snap.data().value));
+      }else if(defaultVal !== undefined){
+        localStorage.setItem(`${userId}_${key}`, JSON.stringify(defaultVal));
+      }
+    });
   }
-}
+};

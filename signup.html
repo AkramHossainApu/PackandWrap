@@ -52,7 +52,7 @@
 
       <!-- UserID (hidden until username has content) -->
       <div class="field hidden" id="uidField">
-        <label for="uid">UserID</label>
+        <label for="uid">User ID</label>
         <input id="uid" type="text" required placeholder="Unique ID"/>
         <div id="uidMsg" class="avail-msg"></div>
       </div>
@@ -109,18 +109,14 @@
     const tip = document.getElementById('pwTip');
     const uidMsg = document.getElementById('uidMsg');
 
-    // Utilities
     function sanitizeBase(s){
       return (s || '')
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, '')
-        .replace(/[^a-z0-9._-]/g, ''); // keep a-z 0-9 . _ -
+        .toLowerCase().trim().replace(/\s+/g, '')
+        .replace(/[^a-z0-9._-]/g, '');
     }
     function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
     function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
     function clearBanners(){ err.classList.remove('show'); ok.classList.remove('show'); }
-    u.focus();
 
     toggle.addEventListener('click', ()=>{
       const isPw = p.type === 'password';
@@ -132,23 +128,21 @@
     function strengthScore(s){ let score=0; if(s.length>=8)score++; if(/[A-Z]/.test(s))score++; if(/[0-9]/.test(s))score++; if(/[^A-Za-z0-9]/.test(s))score++; return Math.min(score,4); }
     p.addEventListener('input', ()=>{ const s=strengthScore(p.value); bar.style.width=`${(s/4)*100}%`; tip.textContent = s<3 ? 'Try adding numbers & symbols for a stronger password.' : 'Nice! Your password looks strong.'; });
 
-    // Availability check with graceful fallback (prevents false "exists" on empty DB)
     async function checkUserIdAvailability(id){
-      if(!id){ uidMsg.textContent=''; uidMsg.className = 'avail-msg'; return false; }
-      try {
-        const ref = doc(db, "userIDs", id);
+      if(!id){ uidMsg.textContent=''; uidMsg.className='avail-msg'; return false; }
+      try{
+        const ref = doc(db, "users", id);
         const snap = await getDoc(ref);
         if(snap.exists()){
-          uidMsg.textContent = "❌ UserID is not available";
+          uidMsg.textContent = "❌ User ID is not available";
           uidMsg.className = "avail-msg avail-bad";
           return false;
-        } else {
-          uidMsg.textContent = "✅ UserID is available";
+        }else{
+          uidMsg.textContent = "✅ User ID is available";
           uidMsg.className = "avail-msg avail-ok";
           return true;
         }
-      } catch (e) {
-        // If rules or network cause an error, don't block or falsely show 'exists'
+      }catch(e){
         console.warn('Availability check error:', e);
         uidMsg.textContent = "⚠️ Unable to verify availability right now";
         uidMsg.className = "avail-msg";
@@ -156,77 +150,62 @@
       }
     }
 
-    // Debounce helper
-    function debounce(fn, ms=120){
-      let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
-    }
-
-    // Auto-fill + collision handling (realtime as the user types)
+    // Realtime mirror + collision handling
+    function debounce(fn, ms=120){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
     const updateUserIdFromUsername = debounce(async ()=>{
-      const raw = u.value;
-      const base = sanitizeBase(raw);
-
+      const base = sanitizeBase(u.value);
       if(!base){
         uidField.classList.add('hidden');
-        uid.value='';
-        uidMsg.textContent='';
-        uidMsg.className='avail-msg';
+        uid.value=''; uidMsg.textContent=''; uidMsg.className='avail-msg';
         return;
       }
-
-      // Show the UserID field as soon as username starts
       uidField.classList.remove('hidden');
 
-      // Try candidate + numeric suffixes until an available one is found
-      let candidate = base;
-      let suffix = 0;
-      while (true){
-        try {
-          const ref = doc(db, "userIDs", candidate);
+      let candidate = base, suffix = 0;
+      while(true){
+        try{
+          const ref = doc(db, "users", candidate);
           const snap = await getDoc(ref);
           if(!snap.exists()){
             uid.value = candidate;
             await checkUserIdAvailability(candidate);
             break;
           }
-        } catch (e) {
-          // If we can't read (rules/network), just use the current candidate
+        }catch(e){
           uid.value = candidate;
           await checkUserIdAvailability(candidate);
           break;
         }
-        suffix++;
-        candidate = base + String(suffix);
+        suffix++; candidate = base + String(suffix);
       }
     }, 80);
 
     u.addEventListener('input', updateUserIdFromUsername);
     uid.addEventListener('input', ()=>{ uid.value = sanitizeBase(uid.value); checkUserIdAvailability(uid.value); });
 
-    // Submit
     form.addEventListener('submit', async e=>{
       e.preventDefault(); clearBanners();
-      const username=u.value.trim(); const userid=uid.value.trim(); const password=p.value;
+      const username=u.value.trim(); const userId=uid.value.trim(); const password=p.value;
       if(!username){ showErr('Please enter a username.'); return; }
-      if(!userid){ showErr('Please enter a UserID.'); return; }
+      if(!userId){ showErr('Please enter a User ID.'); return; }
       if(!password || password.length<6){ showErr('Password must be at least 6 characters.'); return; }
 
       form.classList.add('loading'); btn.textContent='Creating…';
       try{
-        const available = await checkUserIdAvailability(userid);
-        if(!available){ showErr('That UserID is not available. Try the suggested one.'); }
+        const available = await checkUserIdAvailability(userId);
+        if(!available){ showErr('That User ID is not available. Try the suggested one.'); }
         else {
-          await addUser(username,password,userid);
+          await addUser(username,password,userId);
           showOk('Account created successfully. You can now log in.');
           u.value=''; uid.value=''; p.value=''; bar.style.width='0%'; uidMsg.textContent='';
           uidField.classList.add('hidden');
         }
-      }
-      catch(e){
+      }catch(e){
         console.error(e);
-        showErr(e?.message || 'Could not create account. Try a different UserID.');
+        showErr(e?.message || 'Could not create account.');
+      }finally{
+        form.classList.remove('loading'); btn.textContent='Sign Up';
       }
-      finally{ form.classList.remove('loading'); btn.textContent='Sign Up'; }
     });
   </script>
 </body>

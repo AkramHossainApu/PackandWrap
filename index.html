@@ -14,16 +14,13 @@
     .field .row{ display:flex; gap:8px; align-items:center; }
     .field .row input{ flex:1; }
     .actions{ display:grid; gap:10px; margin-top:12px; }
-    .err-banner{ display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px;
-      border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; font-size:14px; }
+    .err-banner{ display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; font-size:14px; }
     .err-banner.show{ display:block; }
     .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
     .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
     .xs-center{ text-align:center; font-size:12px; color:var(--muted); margin-top:8px; }
     .loading{ opacity:.7; pointer-events:none; }
-    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center;
-      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text;
-      color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
     .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
   </style>
 </head>
@@ -42,8 +39,9 @@
 
     <form id="loginForm" class="form vgap" autocomplete="off" novalidate>
       <div class="field">
-        <label for="u">Username</label>
-        <input id="u" name="username" type="text" required autocomplete="username" placeholder="e.g. tasha"/>
+        <label for="u">User ID</label>
+        <input id="u" name="userid" type="text" required autocomplete="username" placeholder="yourid123"/>
+        <div class="helper">Use the User ID you chose at signup.</div>
       </div>
 
       <div class="field">
@@ -71,7 +69,7 @@
   </main>
 
   <script type="module">
-    import { loginUser } from './app.js';
+    import { loginUserById } from './app.js';
 
     const form = document.getElementById('loginForm');
     const err  = document.getElementById('loginErr');
@@ -81,39 +79,12 @@
     const user = document.getElementById('u');
     const remember = document.getElementById('remember');
 
-    // ------- SPA Fallback handling (from 404.html -> index.html?p=/path) -------
-    (function handleSpaFallback(){
-      const params = new URLSearchParams(location.search);
-      const p = params.get('p'); // original desired path (e.g. "/abc/overview" or "/login")
-      if (p) {
-        try {
-          const want = decodeURIComponent(p);
-          if (want === '/' || want === '/login') {
-            history.replaceState({}, '', '/login'); // show clean login URL
-          } else if (/\/overview$/.test(want)) {
-            // Show pretty URL in the bar, then go load the file
-            history.replaceState({}, '', want);
-            location.replace('overview.html');
-            return;
-          } else {
-            history.replaceState({}, '', '/login');
-          }
-        } catch(_) {
-          history.replaceState({}, '', '/login');
-        }
-      }
-    })();
-
-    // ——— Clean URL on first load ———
-    if (location.pathname.endsWith('/index.html') || location.pathname === '/' ) {
-      history.replaceState({}, '', '/login');
-    }
+    // Keep clean URL if your host supports SPA fallback. Otherwise, normal file URLs are fine.
 
     // Auto-forward if remembered
     if (localStorage.getItem('pw_authed') === '1' && localStorage.getItem('pw_userId')) {
       sessionStorage.setItem('pw_authed', '1');
       sessionStorage.setItem('pw_userId', localStorage.getItem('pw_userId'));
-      history.replaceState({}, '', `/${encodeURIComponent(localStorage.getItem('pw_userId'))}/overview`);
       location.href = 'overview.html';
     }
 
@@ -129,13 +100,13 @@
     function clearError(){ err.textContent = ''; err.classList.remove('show'); }
 
     form.addEventListener('submit', async e=>{
-      e.preventDefault(); clearError();  // no GET — creds never go in the URL
-      const u = user.value.trim(); const p = pw.value;
-      if(!u || !p){ showError('Please enter both username and password.'); return; }
+      e.preventDefault(); clearError();  // no GET — creds never in URL
+      const userId = user.value.trim(); const p = pw.value;
+      if(!userId || !p){ showError('Please enter both User ID and password.'); return; }
 
       form.classList.add('loading'); btn.textContent = 'Logging in…';
       try{
-        const res = await loginUser(u, p);
+        const res = await loginUserById(userId, p);
         if(res.ok){
           sessionStorage.setItem('pw_authed','1');
           sessionStorage.setItem('pw_userId', res.userId);
@@ -143,13 +114,12 @@
             localStorage.setItem('pw_authed','1');
             localStorage.setItem('pw_userId', res.userId);
           }
-          history.pushState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
           location.href = 'overview.html';
         } else {
-          showError('Invalid username or password. Please try again.');
+          showError('Invalid User ID or password. Please try again.');
         }
       }catch(e){
-        console.error("Login failed:", e);
+        console.error(e);
         showError('Unable to reach the server. Check your connection and try again.');
       } finally {
         form.classList.remove('loading'); btn.textContent = 'Login';
