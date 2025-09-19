@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Sign Up</title>
   <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Force pretty URL early -->
+  <script>
+    (function(){
+      var base = location.origin;
+      var path = location.pathname;
+      if (path.endsWith("/signup.html")) {
+        history.replaceState({}, "", base + "/signup");
+      }
+    })();
+  </script>
+
   <style>
     body { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
     .auth-wrap{ width:100%; max-width:480px; padding:20px; }
@@ -19,13 +31,11 @@
     .err-banner{ border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; }
     .ok-banner{ border:1px solid #16a34a; background:rgba(34,197,94,.1); color:#86efac; }
     .err-banner.show, .ok-banner.show{ display:block; }
-    .loading{ opacity:.7; pointer-events:none; }
-    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
-    .btn.alt { border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
     .avail-msg{ font-size:12px; margin-top:2px; }
     .avail-ok{ color:#22c55e; }
     .avail-bad{ color:#ef4444; }
     .hidden{ display:none; }
+    .btn.alt { border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
   </style>
 </head>
 
@@ -48,7 +58,6 @@
         <div class="helper">Allowed: letters, numbers, dot (.), dash (-), underscore (_). We’ll suggest a unique ID.</div>
       </div>
 
-      <!-- User ID (hidden until username has content) -->
       <div class="field hidden" id="uidField">
         <label for="uid">User ID</label>
         <input id="uid" type="text" required placeholder="Unique ID"/>
@@ -66,8 +75,8 @@
       <div class="actions">
         <button class="btn primary" id="signupBtn" type="submit">Sign Up</button>
         <div class="divider"><span>or</span></div>
-        <div style="text-align:center; font-size:13px; color:var(--muted);">Have an account?</div>
-        <a class="btn alt" href="index.html">Login</a>
+        <!-- Use pretty route (no .html) -->
+        <a class="btn alt" href="/login" id="loginLink">Login</a>
       </div>
 
       <p id="signupErr" class="err-banner" role="alert" aria-live="assertive"></p>
@@ -78,17 +87,6 @@
   <script type="module">
     import { db, addUser } from './app.js';
     import { getDoc, doc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-
-    // --- Pretty URL for signup + SPA fallback (/404.html -> /index.html?p=/signup) ---
-    (function(){
-      const params = new URLSearchParams(location.search);
-      const p = params.get('p');
-      if (p && decodeURIComponent(p) === '/signup') {
-        history.replaceState({}, '', '/signup');
-      } else if (location.pathname.endsWith('/signup.html')) {
-        history.replaceState({}, '', '/signup');
-      }
-    })();
 
     const form = document.getElementById('signupForm');
     const u = document.getElementById('su');
@@ -103,6 +101,10 @@
 
     const sanitize = s => (s||'').toLowerCase().trim().replace(/\s+/g, '').replace(/[^a-z0-9._-]/g,'');
 
+    function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
+    function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
+    function clearBanners(){ err.classList.remove('show'); ok.classList.remove('show'); }
+
     toggle.addEventListener('click', ()=>{
       const isPw = p.type === 'password';
       p.type = isPw ? 'text' : 'password';
@@ -110,10 +112,6 @@
       toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
       p.focus();
     });
-
-    function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
-    function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
-    function clearBanners(){ err.classList.remove('show'); ok.classList.remove('show'); }
 
     async function isAvailable(id){
       try {
@@ -131,12 +129,11 @@
         console.error('Availability check failed:', e);
         uidMsg.textContent = "⚠️ Unable to verify availability right now";
         uidMsg.className = "avail-msg";
-        return true; // don't block user — rules allow GET so this shouldn't trigger after publishing rules
+        return true;
       }
     }
 
     function debounce(fn, ms=120){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-
     const updateId = debounce(async ()=>{
       const base = sanitize(u.value);
       if(!base){
@@ -155,7 +152,6 @@
             break;
           }
         }catch(e){
-          // On any transient error, use current candidate but don't stop the user
           uid.value = candidate;
           await isAvailable(candidate);
           break;
