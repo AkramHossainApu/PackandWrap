@@ -48,6 +48,9 @@
       background:rgba(255,255,255,.06);
       box-shadow:0 6px 18px rgba(196,181,253,.18);
     }
+    .avail-msg{ font-size:12px; margin-top:2px; }
+    .avail-ok{ color:#22c55e; }
+    .avail-bad{ color:#ef4444; }
   </style>
 </head>
 
@@ -68,6 +71,13 @@
         <label for="su">Username</label>
         <input id="su" type="text" required autocomplete="username" placeholder="Choose a username"/>
         <div class="helper">Letters & numbers only are recommended.</div>
+      </div>
+
+      <!-- NEW: UserID -->
+      <div class="field">
+        <label for="uid">UserID</label>
+        <input id="uid" type="text" required placeholder="Unique ID"/>
+        <div id="uidMsg" class="avail-msg"></div>
       </div>
 
       <div class="field">
@@ -94,8 +104,24 @@
 
   <script type="module">
     import { addUser } from './app.js';
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+
+    // Firebase init (needed here for uid check)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
+      authDomain: "packandwrap-web.firebaseapp.com",
+      projectId: "packandwrap-web",
+      storageBucket: "packandwrap-web.firebasestorage.app",
+      messagingSenderId: "583470090860",
+      appId: "1:583470090860:web:32c2d3b35d262a71fde649"
+    };
+    const appFB = initializeApp(firebaseConfig);
+    const db = getFirestore(appFB);
+
     const form = document.getElementById('signupForm');
     const u = document.getElementById('su');
+    const uid = document.getElementById('uid');
     const p = document.getElementById('sp');
     const btn = document.getElementById('signupBtn');
     const err = document.getElementById('signupErr');
@@ -103,6 +129,8 @@
     const toggle = document.getElementById('togglePw');
     const bar = document.getElementById('pwBar');
     const tip = document.getElementById('pwTip');
+    const uidMsg = document.getElementById('uidMsg');
+
     u.focus();
     function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
     function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
@@ -116,14 +144,55 @@
     });
     function strengthScore(s){ let score=0; if(s.length>=8)score++; if(/[A-Z]/.test(s))score++; if(/[0-9]/.test(s))score++; if(/[^A-Za-z0-9]/.test(s))score++; return Math.min(score,4); }
     p.addEventListener('input', ()=>{ const s=strengthScore(p.value); bar.style.width=`${(s/4)*100}%`; tip.textContent = s<3 ? 'Try adding numbers & symbols for a stronger password.' : 'Nice! Your password looks strong.'; });
+
+    // ---- Auto-fill and check UserID ----
+    async function checkUserIdAvailability(id){
+      if(!id){ uidMsg.textContent=''; return false; }
+      const ref = doc(db, "userIDs", id);
+      const snap = await getDoc(ref);
+      if(snap.exists()){
+        uidMsg.textContent = "❌ UserID is not available";
+        uidMsg.className = "avail-msg avail-bad";
+        return false;
+      } else {
+        uidMsg.textContent = "✅ UserID is available";
+        uidMsg.className = "avail-msg avail-ok";
+        return true;
+      }
+    }
+
+    u.addEventListener('input', async ()=>{
+      let base = u.value.trim();
+      if(!base){ uid.value=''; uidMsg.textContent=''; return; }
+      let candidate = base;
+      let suffix = 1;
+      while(true){
+        const ref = doc(db, "userIDs", candidate);
+        const snap = await getDoc(ref);
+        if(!snap.exists()){ uid.value = candidate; await checkUserIdAvailability(candidate); break; }
+        candidate = base + suffix;
+        suffix++;
+      }
+    });
+
+    uid.addEventListener('input', ()=>{ checkUserIdAvailability(uid.value.trim()); });
+
+    // ---- Submit ----
     form.addEventListener('submit', async e=>{
       e.preventDefault(); clearBanners();
-      const username=u.value.trim(); const password=p.value;
-      if(!username||!password){ showErr('Please fill both username and password.'); return; }
+      const username=u.value.trim(); const userid=uid.value.trim(); const password=p.value;
+      if(!username||!userid||!password){ showErr('Please fill all fields.'); return; }
       if(password.length<6){ showErr('Password must be at least 6 characters.'); return; }
+
       form.classList.add('loading'); btn.textContent='Creating…';
-      try{ await addUser(username,password); showOk('Account created successfully. You can now log in.'); u.value=''; p.value=''; bar.style.width='0%'; }
-      catch(e){ console.error(e); showErr('That username may already be taken. Try a different one.'); }
+      try{ 
+        const available = await checkUserIdAvailability(userid);
+        if(!available){ showErr('That UserID is not available.'); form.classList.remove('loading'); btn.textContent='Sign Up'; return; }
+        await addUser(username,password,userid); 
+        showOk('Account created successfully. You can now log in.'); 
+        u.value=''; uid.value=''; p.value=''; bar.style.width='0%'; uidMsg.textContent='';
+      }
+      catch(e){ console.error(e); showErr('That UserID may already be taken. Try a different one.'); }
       finally{ form.classList.remove('loading'); btn.textContent='Sign Up'; }
     });
   </script>

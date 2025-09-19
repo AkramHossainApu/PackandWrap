@@ -80,6 +80,12 @@
         </div>
       </div>
 
+      <!-- Remember Me -->
+      <div class="field" style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="remember"/>
+        <label for="remember">Remember me</label>
+      </div>
+
       <div class="actions">
         <button class="btn primary" id="loginBtn" type="submit">Login</button>
         <div class="divider"><span>or</span></div>
@@ -99,6 +105,15 @@
     const pw   = document.getElementById('p');
     const toggle = document.getElementById('togglePw');
     const user = document.getElementById('u');
+    const remember = document.getElementById('remember');
+
+    // Auto-fill if remembered
+    if(localStorage.getItem('pw_authed')==='1'){
+      sessionStorage.setItem('pw_authed','1');
+      sessionStorage.setItem('pw_user', localStorage.getItem('pw_user'));
+      location.href='overview.html';
+    }
+
     user.focus();
     toggle.addEventListener('click', ()=>{
       const isPw = pw.type === 'password';
@@ -109,6 +124,7 @@
     });
     function showError(msg){ err.textContent = msg; err.classList.add('show'); }
     function clearError(){ err.textContent = ''; err.classList.remove('show'); }
+
     form.addEventListener('submit', async e=>{
       e.preventDefault(); clearError();
       const u = user.value.trim(); const p = pw.value;
@@ -116,9 +132,20 @@
       form.classList.add('loading'); btn.textContent = 'Logging in…';
       try{
         const ok = await loginUser(u, p);
-        if(ok){ sessionStorage.setItem('pw_authed','1'); sessionStorage.setItem('pw_user', u); location.href='overview.html'; }
+        if(ok){ 
+          sessionStorage.setItem('pw_authed','1'); 
+          sessionStorage.setItem('pw_user', u); 
+          if(remember.checked){
+            localStorage.setItem('pw_authed','1');
+            localStorage.setItem('pw_user', u);
+          }
+          location.href='overview.html'; 
+        }
         else{ showError('Invalid username or password. Please try again.'); }
-      }catch(e){ console.error(e); showError('Unable to reach the server. Check your connection and try again.'); }
+      }catch(e){ 
+        console.error(e); 
+        showError('Unable to reach the server. Check your connection and try again.'); 
+      }
       finally{ form.classList.remove('loading'); btn.textContent = 'Login'; }
     });
   </script>
