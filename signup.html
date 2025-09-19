@@ -6,14 +6,7 @@
   <title>Pack & Wrap • Sign Up</title>
   <link rel="stylesheet" href="styles.css"/>
   <style>
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      position: relative;
-    }
+    body { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
     .auth-wrap{ width:100%; max-width:480px; padding:20px; }
     .auth-header{ text-align:center; margin-bottom:8px; }
     .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
@@ -22,35 +15,19 @@
     .field .row input{ flex:1; }
     .helper{ color:var(--muted); font-size:12px; margin-top:2px; }
     .actions{ display:grid; gap:10px; margin-top:12px; }
-    .err-banner, .ok-banner{
-      display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; font-size:14px;
-    }
+    .err-banner, .ok-banner{ display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; font-size:14px; }
     .err-banner{ border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; }
     .ok-banner{ border:1px solid #16a34a; background:rgba(34,197,94,.1); color:#86efac; }
     .err-banner.show, .ok-banner.show{ display:block; }
     .strength{ height:6px; border-radius:8px; background:var(--surface); overflow:hidden; }
     .strength > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,#f87171,#fbbf24,#34d399); transition:width .25s ease; }
     .loading{ opacity:.7; pointer-events:none; }
-    .brand{ 
-      font-size:26px;
-      font-weight:900;
-      letter-spacing:.5px;
-      text-align:center;
-      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-      text-shadow:0 2px 8px rgba(0,0,0,.25);
-    }
-    .btn.alt {
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      box-shadow:0 6px 18px rgba(196,181,253,.18);
-    }
+    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .btn.alt { border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
     .avail-msg{ font-size:12px; margin-top:2px; }
     .avail-ok{ color:#22c55e; }
     .avail-bad{ color:#ef4444; }
+    .hidden{ display:none; }
   </style>
 </head>
 
@@ -70,11 +47,11 @@
       <div class="field">
         <label for="su">Username</label>
         <input id="su" type="text" required autocomplete="username" placeholder="Choose a username"/>
-        <div class="helper">Letters & numbers only are recommended.</div>
+        <div class="helper">Use letters, numbers, dot (.), dash (-), or underscore (_).</div>
       </div>
 
-      <!-- NEW: UserID -->
-      <div class="field">
+      <!-- UserID (hidden until username has content) -->
+      <div class="field hidden" id="uidField">
         <label for="uid">UserID</label>
         <input id="uid" type="text" required placeholder="Unique ID"/>
         <div id="uidMsg" class="avail-msg"></div>
@@ -107,7 +84,7 @@
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 
-    // Firebase init (needed here for uid check)
+    // Firebase init (for availability checks while unauthenticated)
     const firebaseConfig = {
       apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
       authDomain: "packandwrap-web.firebaseapp.com",
@@ -121,6 +98,7 @@
 
     const form = document.getElementById('signupForm');
     const u = document.getElementById('su');
+    const uidField = document.getElementById('uidField');
     const uid = document.getElementById('uid');
     const p = document.getElementById('sp');
     const btn = document.getElementById('signupBtn');
@@ -131,10 +109,19 @@
     const tip = document.getElementById('pwTip');
     const uidMsg = document.getElementById('uidMsg');
 
-    u.focus();
+    // Utilities
+    function sanitizeBase(s){
+      return (s || '')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9._-]/g, ''); // keep a-z 0-9 . _ -
+    }
     function showErr(msg){ err.textContent = msg; err.classList.add('show'); ok.classList.remove('show'); }
     function showOk(msg){ ok.textContent = msg; ok.classList.add('show'); err.classList.remove('show'); }
     function clearBanners(){ err.classList.remove('show'); ok.classList.remove('show'); }
+    u.focus();
+
     toggle.addEventListener('click', ()=>{
       const isPw = p.type === 'password';
       p.type = isPw ? 'text' : 'password';
@@ -145,54 +132,101 @@
     function strengthScore(s){ let score=0; if(s.length>=8)score++; if(/[A-Z]/.test(s))score++; if(/[0-9]/.test(s))score++; if(/[^A-Za-z0-9]/.test(s))score++; return Math.min(score,4); }
     p.addEventListener('input', ()=>{ const s=strengthScore(p.value); bar.style.width=`${(s/4)*100}%`; tip.textContent = s<3 ? 'Try adding numbers & symbols for a stronger password.' : 'Nice! Your password looks strong.'; });
 
-    // ---- Auto-fill and check UserID ----
+    // Availability check with graceful fallback
     async function checkUserIdAvailability(id){
-      if(!id){ uidMsg.textContent=''; return false; }
-      const ref = doc(db, "userIDs", id);
-      const snap = await getDoc(ref);
-      if(snap.exists()){
-        uidMsg.textContent = "❌ UserID is not available";
-        uidMsg.className = "avail-msg avail-bad";
-        return false;
-      } else {
-        uidMsg.textContent = "✅ UserID is available";
-        uidMsg.className = "avail-msg avail-ok";
+      if(!id){ uidMsg.textContent=''; uidMsg.className = 'avail-msg'; return false; }
+      try {
+        const ref = doc(db, "userIDs", id);
+        const snap = await getDoc(ref);
+        if(snap.exists()){
+          uidMsg.textContent = "❌ UserID is not available";
+          uidMsg.className = "avail-msg avail-bad";
+          return false;
+        } else {
+          uidMsg.textContent = "✅ UserID is available";
+          uidMsg.className = "avail-msg avail-ok";
+          return true;
+        }
+      } catch (e) {
+        // If rules or network cause an error, don't block the user or show a false 'exists'
+        console.warn('Availability check error:', e);
+        uidMsg.textContent = "⚠️ Unable to verify availability right now";
+        uidMsg.className = "avail-msg";
+        // Return true-ish to avoid false negatives during empty DB / rules tweaks
         return true;
       }
     }
 
-    u.addEventListener('input', async ()=>{
-      let base = u.value.trim();
-      if(!base){ uid.value=''; uidMsg.textContent=''; return; }
-      let candidate = base;
-      let suffix = 1;
-      while(true){
-        const ref = doc(db, "userIDs", candidate);
-        const snap = await getDoc(ref);
-        if(!snap.exists()){ uid.value = candidate; await checkUserIdAvailability(candidate); break; }
-        candidate = base + suffix;
-        suffix++;
+    // Debounce helper
+    function debounce(fn, ms=120){
+      let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+    }
+
+    // Auto-fill + collision handling (realtime as the user types)
+    const updateUserIdFromUsername = debounce(async ()=>{
+      const raw = u.value;
+      const base = sanitizeBase(raw);
+
+      if(!base){
+        uidField.classList.add('hidden');
+        uid.value='';
+        uidMsg.textContent='';
+        uidMsg.className='avail-msg';
+        return;
       }
-    });
 
-    uid.addEventListener('input', ()=>{ checkUserIdAvailability(uid.value.trim()); });
+      // Show the UserID field as soon as username starts
+      uidField.classList.remove('hidden');
 
-    // ---- Submit ----
+      // Try candidate + numeric suffixes until an available one is found
+      let candidate = base;
+      let suffix = 0;
+      while (true){
+        try {
+          const ref = doc(db, "userIDs", candidate);
+          const snap = await getDoc(ref);
+          if(!snap.exists()){
+            uid.value = candidate;
+            await checkUserIdAvailability(candidate);
+            break;
+          }
+        } catch (e) {
+          // If we can't read (rules/network), just use the current candidate
+          uid.value = candidate;
+          await checkUserIdAvailability(candidate);
+          break;
+        }
+        suffix++;
+        candidate = base + String(suffix);
+      }
+    }, 80);
+
+    u.addEventListener('input', updateUserIdFromUsername);
+    uid.addEventListener('input', ()=>{ uid.value = sanitizeBase(uid.value); checkUserIdAvailability(uid.value); });
+
+    // Submit
     form.addEventListener('submit', async e=>{
       e.preventDefault(); clearBanners();
       const username=u.value.trim(); const userid=uid.value.trim(); const password=p.value;
-      if(!username||!userid||!password){ showErr('Please fill all fields.'); return; }
-      if(password.length<6){ showErr('Password must be at least 6 characters.'); return; }
+      if(!username){ showErr('Please enter a username.'); return; }
+      if(!userid){ showErr('Please enter a UserID.'); return; }
+      if(!password || password.length<6){ showErr('Password must be at least 6 characters.'); return; }
 
       form.classList.add('loading'); btn.textContent='Creating…';
-      try{ 
+      try{
         const available = await checkUserIdAvailability(userid);
-        if(!available){ showErr('That UserID is not available.'); form.classList.remove('loading'); btn.textContent='Sign Up'; return; }
-        await addUser(username,password,userid); 
-        showOk('Account created successfully. You can now log in.'); 
-        u.value=''; uid.value=''; p.value=''; bar.style.width='0%'; uidMsg.textContent='';
+        if(!available){ showErr('That UserID is not available. Try the suggested one.'); }
+        else {
+          await addUser(username,password,userid);
+          showOk('Account created successfully. You can now log in.');
+          u.value=''; uid.value=''; p.value=''; bar.style.width='0%'; uidMsg.textContent='';
+          uidField.classList.add('hidden');
+        }
       }
-      catch(e){ console.error(e); showErr('That UserID may already be taken. Try a different one.'); }
+      catch(e){
+        console.error(e);
+        showErr(e?.message || 'Could not create account. Try a different UserID.');
+      }
       finally{ form.classList.remove('loading'); btn.textContent='Sign Up'; }
     });
   </script>
