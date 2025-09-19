@@ -3,7 +3,6 @@
 // (Updated)
 // - Adds userIDs registry + users_index updates on signup
 // - Username canonicalization
-// - Keeps your existing features
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -102,7 +101,7 @@ export async function sha(input){
 function canonicalUsername(u){ return (u||'').trim().toLowerCase(); }
 function displayUsername(u){  return (u||'').trim(); }
 
-// ====== Minimal user KV helpers (unchanged core) ======
+// ====== Minimal user KV helpers ======
 const store = {
   get(k, d){
     try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; }
@@ -125,7 +124,6 @@ const store = {
 };
 
 // ---------- Users (Firestore `users` collection) ----------
-// Writes user, reserves /userIDs/{userId}, and indexes /users_index/{usernameLower}
 export async function addUser(username, password, userId){
   const canonical = canonicalUsername(username);
   const display   = displayUsername(username);
@@ -134,9 +132,10 @@ export async function addUser(username, password, userId){
 
   const userRef  = doc(db, "users", userId);
   const uidRef   = doc(db, "userIDs", userId);
+
+  // Existence checks
   const snap     = await getDoc(userRef);
   const uidSnap  = await getDoc(uidRef);
-
   if(snap.exists() || uidSnap.exists()) {
     throw new Error("UserID already exists");
   }
@@ -166,16 +165,12 @@ export async function addUser(username, password, userId){
   }
 }
 
-// ---- The rest of your app code (overview, tables, etc.) stays as-is ----
-// (For brevity, keep your previous implementations below this line or
-//  paste your existing file content here unchanged.)
-
-// ========== Render & Nav & Session helpers (retain your implementations) ==========
+// ---- (Keep the rest of your non-signup app code as-is) ----
 function activeUserId(){
   return localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || null;
 }
 function renderAll(userId){
-  // keep your existing rendering logic (omitted here for brevity)
+  // keep your existing rendering logic
 }
 function setupNav(){
   const wrap   = document.querySelector('.tabs-wrap');

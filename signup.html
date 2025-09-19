@@ -132,7 +132,7 @@
     function strengthScore(s){ let score=0; if(s.length>=8)score++; if(/[A-Z]/.test(s))score++; if(/[0-9]/.test(s))score++; if(/[^A-Za-z0-9]/.test(s))score++; return Math.min(score,4); }
     p.addEventListener('input', ()=>{ const s=strengthScore(p.value); bar.style.width=`${(s/4)*100}%`; tip.textContent = s<3 ? 'Try adding numbers & symbols for a stronger password.' : 'Nice! Your password looks strong.'; });
 
-    // Availability check with graceful fallback
+    // Availability check with graceful fallback (prevents false "exists" on empty DB)
     async function checkUserIdAvailability(id){
       if(!id){ uidMsg.textContent=''; uidMsg.className = 'avail-msg'; return false; }
       try {
@@ -148,11 +148,10 @@
           return true;
         }
       } catch (e) {
-        // If rules or network cause an error, don't block the user or show a false 'exists'
+        // If rules or network cause an error, don't block or falsely show 'exists'
         console.warn('Availability check error:', e);
         uidMsg.textContent = "⚠️ Unable to verify availability right now";
         uidMsg.className = "avail-msg";
-        // Return true-ish to avoid false negatives during empty DB / rules tweaks
         return true;
       }
     }
