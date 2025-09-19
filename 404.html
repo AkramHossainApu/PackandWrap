@@ -4,21 +4,23 @@
     <meta charset="utf-8">
     <title>Loading…</title>
     <meta name="robots" content="noindex">
-    <style>
-      html,body{height:100%} body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#eee;font-family:system-ui,Segoe UI,Roboto,Arial}
-      .box{opacity:.9;text-align:center}
-    </style>
+    <style>html,body{height:100%}body{display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#eee;font-family:system-ui,Segoe UI,Roboto,Arial}.box{opacity:.9;text-align:center}</style>
   </head>
   <body>
     <div class="box">Loading…</div>
     <script>
-      // Preserve the requested path and hand it to index.html via ?p=
-      // Example: /abc/overview -> /index.html?p=%2Fabc%2Foverview
+      // Preserve pretty route and hand it to index.html (or signup.html) via ?p=
       (function(){
         var path = location.pathname + location.search + location.hash;
-        var target = '/index.html?p=' + encodeURIComponent(path);
-        // Use replace so the back button doesn't land on 404 again
-        location.replace(target);
+
+        // If someone hit /signup directly, send to signup.html so its JS can restore /signup
+        if (location.pathname === '/signup') {
+          location.replace('/signup.html?p=' + encodeURIComponent('/signup'));
+          return;
+        }
+
+        // Default: route all other pretty paths through index.html
+        location.replace('/index.html?p=' + encodeURIComponent(path));
       })();
     </script>
   </body>

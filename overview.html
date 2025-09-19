@@ -94,25 +94,36 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <!-- app.js is an ES module -->
+  <script type="module" src="app.js"></script>
+
   <script>
-    // Auth gate + pretty URL
+    // ---------- Auth gate & pretty URL ----------
     (function(){
       const authed = sessionStorage.getItem('pw_authed') === '1';
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
+      // Not logged in → go to /login (index.html handles restoring pretty URL)
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('index.html');
         return;
       }
+
+      // Keep the address bar pretty: /{userId}/overview
       const want = `/${encodeURIComponent(uid)}/overview`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
     })();
 
-    // Logout
+    // ---------- Simple micro-anim on KPI changes ----------
+    const pulse = el => { el?.classList.add('pulse'); setTimeout(()=>el?.classList.remove('pulse'), 180); };
+    const ids = ['tInv1','tInv2','tSell1','tSell2','tExp','tProfit','highlightCustomers','highlightBest','highlightLow'];
+    const obs = new MutationObserver(m=>m.forEach(mm=>{ if(mm.type==='childList'){ const el=mm.target; if(el.hasAttribute('data-animate')) pulse(el); } }));
+    ids.forEach(id=>{ const n = document.getElementById(id); if(n) obs.observe(n, { childList:true }); });
+
+    // ---------- Logout ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -123,7 +134,7 @@
       location.replace('index.html');
     });
 
-    // (Your overview data/render code stays as-is)
+    // (Your data-fetch/render logic can run below; no DB reads required here for URL/auth)
   </script>
 </body>
 </html>
