@@ -6,15 +6,12 @@
   <title>Pack & Wrap • Login</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Force pretty URL early, before anything else renders -->
+  <!-- Force pretty URL early (no index.html/login.html in the bar) -->
   <script>
     (function(){
-      var base = location.origin;
       var path = location.pathname;
-      if (path === "/" || path.endsWith("/index.html")) {
-        history.replaceState({}, "", base + "/login");
-      } else if (path.endsWith("/login.html")) {
-        history.replaceState({}, "", base + "/login");
+      if (path === "/" || path.endsWith("/index.html") || path.endsWith("/login.html")) {
+        history.replaceState({}, "", "/login");
       }
     })();
   </script>
@@ -64,8 +61,8 @@
       <div class="actions">
         <button class="btn primary" id="loginBtn" type="submit">Login</button>
         <div class="divider"><span>or</span></div>
-        <!-- Use pretty route (no .html) -->
-        <a class="btn alt" href="/signup" id="signupLink">Signup</a>
+        <!-- Pretty route (no .html) -->
+        <a class="btn alt" href="/signup">Signup</a>
       </div>
 
       <p id="loginErr" class="err-banner" role="alert" aria-live="assertive"></p>
@@ -74,6 +71,17 @@
 
   <script type="module">
     import { loginWithNameOrId } from './app.js';
+
+    // --- Pretty URL for login + SPA fallback (/404.html -> /index.html?p=/login) ---
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const p = params.get('p');
+      if (p && decodeURIComponent(p) === '/login') {
+        history.replaceState({}, '', '/login');
+      } else if (location.pathname.endsWith('/index.html') || location.pathname === '/') {
+        history.replaceState({}, '', '/login');
+      }
+    })();
 
     const form = document.getElementById('loginForm');
     const err  = document.getElementById('loginErr');
@@ -93,7 +101,7 @@
       pw.focus();
     });
 
-    // Optional auto-forward if remembered
+    // Forward if already remembered (optional)
     if (localStorage.getItem('pw_authed') === '1' && localStorage.getItem('pw_userId')) {
       sessionStorage.setItem('pw_authed', '1');
       sessionStorage.setItem('pw_userId', localStorage.getItem('pw_userId'));
