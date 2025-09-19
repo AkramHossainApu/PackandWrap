@@ -5,17 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Login</title>
   <link rel="stylesheet" href="styles.css"/>
-
-  <!-- Force pretty URL early (no index.html/login.html in the bar) -->
-  <script>
-    (function(){
-      var path = location.pathname;
-      if (path === "/" || path.endsWith("/index.html") || path.endsWith("/login.html")) {
-        history.replaceState({}, "", "/login");
-      }
-    })();
-  </script>
-
   <style>
     body { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
     .auth-wrap{ width:100%; max-width:460px; padding:20px; }
@@ -61,8 +50,7 @@
       <div class="actions">
         <button class="btn primary" id="loginBtn" type="submit">Login</button>
         <div class="divider"><span>or</span></div>
-        <!-- Pretty route (no .html) -->
-        <a class="btn alt" href="/signup">Signup</a>
+        <a class="btn alt" href="signup.html">Signup</a>
       </div>
 
       <p id="loginErr" class="err-banner" role="alert" aria-live="assertive"></p>
@@ -101,7 +89,7 @@
       pw.focus();
     });
 
-    // Forward if already remembered (optional)
+    // Forward if already remembered (optional; comment if you don't use remember-me)
     if (localStorage.getItem('pw_authed') === '1' && localStorage.getItem('pw_userId')) {
       sessionStorage.setItem('pw_authed', '1');
       sessionStorage.setItem('pw_userId', localStorage.getItem('pw_userId'));
@@ -120,6 +108,9 @@
         if(res.ok){
           sessionStorage.setItem('pw_authed','1');
           sessionStorage.setItem('pw_userId', res.userId);
+          // Optional remember:
+          // localStorage.setItem('pw_authed','1');
+          // localStorage.setItem('pw_userId', res.userId);
           history.pushState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
           location.href = 'overview.html';
         } else {
@@ -127,6 +118,7 @@
         }
       }catch(e){
         console.error('Login error:', e);
+        // If you see "Missing or insufficient permissions", make sure you PUBLISHED the rules above.
         showError('Unable to reach the server. Check your connection and try again.');
       }finally{
         form.classList.remove('loading'); btn.textContent = 'Login';
