@@ -6,76 +6,112 @@
   <title>Pack & Wrap • Overview</title>
   <link rel="stylesheet" href="styles.css"/>
   <style>
-    /* ===== Layout refresh ===== */
+    /* ===== Topbar redesign ===== */
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
+      border-bottom:1px solid var(--border);
+    }
+    .brand-row{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 16px;
+    }
+    .brand{
+      font-weight:900; letter-spacing:.3px; font-size:18px;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    .chip{
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+    }
+
+    .tabs-wrap{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 8px 10px 8px;
+    }
+    .nav-toggle{
+      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
+      padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:6px; border:1px solid var(--border); border-radius:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tabs a{
+      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
+    }
+    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
+    .tabs a[aria-current="page"]{
+      background:linear-gradient(90deg,#a78bfa22,#f472b622);
+      border:1px solid var(--border);
+      font-weight:700;
+    }
+    .tabs .btn.ghost{ margin-left:4px; }
+
+    /* Mobile collapse */
+    @media (max-width:760px){
+      .nav-toggle{ display:inline-block; }
+      .tabs{ display:none; width:100%; flex-direction:column; }
+      .tabs.show{ display:flex; }
+      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
+      .tabs .btn.ghost{ margin-left:0; }
+    }
+
+    /* ===== Layout refresh (body remains your design) ===== */
     .page-head{
-      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px;
+      display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0;
     }
     .title-wrap{ display:grid; gap:6px; }
     .title-wrap h2{ margin:0; font-size:24px; letter-spacing:.2px; }
     .title-wrap .sub{ margin:0; color:var(--muted); font-size:13px; }
 
-    /* Top actions: single split "New" button (no duplicates) */
     .actions-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .split{
       display:inline-flex; border-radius:14px; overflow:hidden; box-shadow:0 6px 18px rgba(196,181,253,.18);
       border:1px solid var(--border); background:rgba(255,255,255,.06);
     }
-    .split button{
-      appearance:none; border:0; background:transparent; color:inherit; padding:8px 12px; cursor:pointer;
-    }
-    .split .primary{
-      background:linear-gradient(90deg,#a78bfa22,#f472b622);
-      font-weight:700;
-    }
+    .split button{ appearance:none; border:0; background:transparent; color:inherit; padding:8px 12px; cursor:pointer; }
+    .split .primary{ background:linear-gradient(90deg,#a78bfa22,#f472b622); font-weight:700; }
     .split .caret{ border-left:1px solid var(--border); }
 
-    /* Dropdown menu */
-    .menu{
-      position:relative;
-    }
+    .menu{ position:relative; }
     .menu-panel{
       position:absolute; right:0; top:40px; min-width:180px;
       border:1px solid var(--border); border-radius:12px; padding:6px;
       background:rgba(17,24,39,.9); backdrop-filter: blur(8px);
-      box-shadow:0 10px 22px rgba(0,0,0,.25);
-      display:none;
+      box-shadow:0 10px 22px rgba(0,0,0,.25); display:none;
     }
     .menu-panel.show{ display:block; }
     .menu-item{
-      display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; text-decoration:none;
-      color:inherit;
+      display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; text-decoration:none; color:inherit;
     }
     .menu-item:hover{ background:rgba(255,255,255,.08); }
     .menu-item .emoji{ width:22px; text-align:center; }
 
-    /* KPI grid */
-    .kpi{
-      display:grid; gap:12px; grid-template-columns: repeat(6, minmax(150px, 1fr));
-    }
+    .kpi{ display:grid; gap:12px; grid-template-columns: repeat(6, minmax(150px, 1fr)); }
     .kpi .card{ padding:14px; display:grid; gap:6px; border-radius:16px; }
     .kpi .label{ color:var(--muted); font-size:12px; }
     .kpi .value{ font-size:22px; font-weight:800; letter-spacing:.2px; }
     .kpi .trend{ font-size:12px; color:var(--muted); }
 
-    /* Highlights */
-    .highlights{
-      display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr)); margin-top:16px;
-    }
+    .highlights{ display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr)); margin-top:16px; }
     .highlights .card{ padding:14px; display:grid; gap:6px; border-radius:16px; }
     .highlights .label{ color:var(--muted); font-size:12px; }
     .highlights .value{ font-size:18px; font-weight:700; }
 
-    /* Charts */
     .charts{ display:grid; gap:12px; grid-template-columns:1fr 1fr; margin-top:16px; }
     .chart-card{ padding:14px; border-radius:16px; }
     .chart-title{ margin:0 0 8px; color:#e7dff1; font-size:14px; }
 
-    /* Responsiveness */
     @media (max-width:1200px){ .kpi{ grid-template-columns: repeat(3, minmax(160px,1fr)); } }
     @media (max-width:820px){ .page-head{ flex-direction:column; align-items:flex-start; } .charts{ grid-template-columns:1fr; } }
     @media (max-width:640px){ .kpi{ grid-template-columns: repeat(2, minmax(160px,1fr)); } .highlights{ grid-template-columns:1fr; } }
 
-    /* Fun micro-anim on KPI changes */
     [data-animate]{ transition: transform .15s ease, filter .15s ease; }
     [data-animate].pulse{ transform: translateY(-1px); filter: drop-shadow(0 4px 12px rgba(236,72,153,.16)); }
   </style>
@@ -95,14 +131,15 @@
 
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
-      <nav class="tabs">
-        <a href="overview.html" id="overviewTab" aria-current="page">Overview</a>
-        <a href="products.html">Products</a>
-        <a href="investments.html">Investments</a>
-        <a href="sales.html">Sales</a>
-        <a href="customers.html">Customers</a>
-        <a href="boost.html">Boost</a>
-        <a href="backup.html">Backup</a>
+      <nav class="tabs" id="mainTabs">
+        <!-- Absolute file hrefs = safe fallback; data-route used for pretty URLs -->
+        <a href="/overview.html"   data-route="overview"  id="tabOverview" aria-current="page">Overview</a>
+        <a href="/products.html"   data-route="products"  id="tabProducts">Products</a>
+        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
+        <a href="/sales.html"      data-route="sales"     id="tabSales">Sales</a>
+        <a href="/customers.html"  data-route="customers" id="tabCustomers">Customers</a>
+        <a href="/boost.html"      data-route="boost"     id="tabBoost">Boost</a>
+        <a href="/backup.html"     data-route="backup"    id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
@@ -116,7 +153,7 @@
           <p class="sub">At-a-glance totals and trends for your business.</p>
         </div>
 
-        <!-- Single "New" split menu replaces three duplicate buttons -->
+        <!-- Single "New" split menu -->
         <div class="actions-bar">
           <div class="menu">
             <div class="split" role="group" aria-label="Create new">
@@ -124,9 +161,9 @@
               <button class="caret" id="newCaret" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="newMenu">▾</button>
             </div>
             <div class="menu-panel" id="newMenu" role="menu" aria-labelledby="newCaret">
-              <a class="menu-item" role="menuitem" href="sales.html#new"><span class="emoji">🧾</span><span>Sale</span></a>
-              <a class="menu-item" role="menuitem" href="investments.html#new"><span class="emoji">💸</span><span>Investment</span></a>
-              <a class="menu-item" role="menuitem" href="boost.html#new"><span class="emoji">📉</span><span>Expense</span></a>
+              <a class="menu-item" role="menuitem" href="/sales.html#new" data-route="sales"><span class="emoji">🧾</span><span>Sale</span></a>
+              <a class="menu-item" role="menuitem" href="/investments.html#new" data-route="investments"><span class="emoji">💸</span><span>Investment</span></a>
+              <a class="menu-item" role="menuitem" href="/boost.html#new" data-route="boost"><span class="emoji">📉</span><span>Expense</span></a>
             </div>
           </div>
         </div>
@@ -172,10 +209,48 @@
         return;
       }
 
+      // Keep pretty URL while on this page
       const want = `/${encodeURIComponent(uid)}/overview`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
+
+      // Wire navbar links: set pretty URL + load actual file (absolute path)
+      const nav = document.getElementById('mainTabs');
+      if (nav) {
+        nav.querySelectorAll('a[data-route]').forEach(a=>{
+          const route = a.getAttribute('data-route');
+          // Safe absolute file fallback
+          a.setAttribute('href', `/${route}.html`);
+
+          a.addEventListener('click', function(e){
+            // Let Logout handle itself
+            if (a.id === 'logoutBtn') return;
+            e.preventDefault();
+            history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+            location.assign(`/${route}.html`);
+          });
+        });
+      }
+
+      // Also wire the "New" menu links to pretty URLs
+      document.querySelectorAll('#newMenu a[data-route]').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        a.setAttribute('href', `/${route}.html#new`);
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+          location.assign(`/${route}.html#new`);
+        });
+      });
+    })();
+
+    // ---------- Mobile nav toggle ----------
+    (function(){
+      const tgl = document.getElementById('navToggle');
+      const tabs = document.getElementById('mainTabs');
+      if (!tgl || !tabs) return;
+      tgl.addEventListener('click', ()=> tabs.classList.toggle('show'));
     })();
 
     // ---------- Split "New" menu behavior ----------
@@ -183,13 +258,11 @@
       const caret = document.getElementById('newCaret');
       const primary = document.getElementById('newPrimary');
       const menu = document.getElementById('newMenu');
-
       if (!caret || !menu || !primary) return;
 
       function openMenu(){
         menu.classList.add('show');
         caret.setAttribute('aria-expanded','true');
-        // focus first item for accessibility
         const first = menu.querySelector('.menu-item');
         first && first.focus();
       }
@@ -200,25 +273,21 @@
       function toggleMenu(){
         if (menu.classList.contains('show')) closeMenu(); else openMenu();
       }
-
       caret.addEventListener('click', toggleMenu);
       primary.addEventListener('click', toggleMenu);
-
       document.addEventListener('click', (e)=>{
         if (!menu.contains(e.target) && !caret.contains(e.target) && !primary.contains(e.target)) closeMenu();
       });
-      document.addEventListener('keydown', (e)=>{
-        if (e.key === 'Escape') closeMenu();
-      });
+      document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeMenu(); });
     })();
 
-    // ---------- Simple micro-anim on KPI changes ----------
+    // ---------- KPI micro-anim ----------
     const pulse = el => { el?.classList.add('pulse'); setTimeout(()=>el?.classList.remove('pulse'), 180); };
     const ids = ['tInv1','tInv2','tSell1','tSell2','tExp','tProfit','highlightCustomers','highlightBest','highlightLow'];
     const obs = new MutationObserver(m=>m.forEach(mm=>{ if(mm.type==='childList'){ const el=mm.target; if(el.hasAttribute('data-animate')) pulse(el); } }));
     ids.forEach(id=>{ const n = document.getElementById(id); if(n) obs.observe(n, { childList:true }); });
 
-    // ---------- Logout ----------
+    // ---------- Logout (forget both storages) ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -228,8 +297,6 @@
       history.replaceState({}, '', '/login');
       location.replace('index.html');
     });
-
-    // (Data fetch/render logic goes below)
   </script>
 </body>
 </html>
