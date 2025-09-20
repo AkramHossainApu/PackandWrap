@@ -6,7 +6,7 @@
   <title>Pack & Wrap • Products</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- 404 fallback for pretty URL: /{userId}/products -->
+  <!-- Pretty URL 404 fallback: /{userId}/products -->
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
@@ -20,13 +20,16 @@
   </script>
 
   <style>
-    /* ===== Page chrome (no navbar) ===== */
+    /* ===== Topbar (exact same as Overview) ===== */
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
+      border-bottom:1px solid var(--border);
+    }
     .brand-row{
       display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:14px 16px; margin:12px 0;
-      border:1px solid var(--border); border-radius:16px;
-      background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(17,24,39,.45));
-      backdrop-filter: blur(8px);
+      padding:10px 16px;
     }
     .brand{
       font-weight:900; letter-spacing:.3px; font-size:18px;
@@ -37,21 +40,54 @@
     .chip{
       font-size:12px; padding:6px 10px; border-radius:999px;
       border:1px solid var(--border); background:rgba(255,255,255,.06);
-      white-space:nowrap;
     }
 
-    /* ===== Page head ===== */
+    .tabs-wrap{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 8px 10px 8px;
+    }
+    .nav-toggle{
+      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
+      padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:6px; border:1px solid var(--border); border-radius:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tabs a{
+      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
+    }
+    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
+    .tabs a[aria-current="page"]{
+      background:linear-gradient(90deg,#a78bfa22,#f472b622);
+      border:1px solid var(--border);
+      font-weight:700;
+    }
+    .tabs .btn.ghost{ margin-left:4px; }
+
+    /* Mobile collapse */
+    @media (max-width:760px){
+      .nav-toggle{ display:inline-block; }
+      .tabs{ display:none; width:100%; flex-direction:column; }
+      .tabs.show{ display:flex; }
+      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
+      .tabs .btn.ghost{ margin-left:0; }
+    }
+
+    /* ===== Products page polish ===== */
     .page-head{
-      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px;
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:16px 0 12px;
       flex-wrap:wrap;
     }
-    .page-head h2{ margin:0; font-size:22px; letter-spacing:.2px; }
+    .page-head h2{ margin:0; font-size:22px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
 
-    /* ===== Toolbar ===== */
+    .card{ border-radius:16px; }
     .toolbar{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-      margin-bottom:14px;
+      padding:14px; border-bottom:1px solid var(--border);
     }
     .toolbar input{
       flex:1; min-width:220px;
@@ -59,25 +95,23 @@
       background:rgba(255,255,255,.06); border:1px solid var(--border); color:inherit;
     }
     .toolbar .actions{ display:flex; gap:8px; flex-wrap:wrap; }
-    .toolbar .btn{ padding:8px 12px; border-radius:12px; }
+    .toolbar .btn{ border-radius:12px; }
 
-    /* ===== Card / table ===== */
-    .card{ border-radius:16px; }
-    .catalog-title{ margin:6px 0 10px; font-size:16px; font-weight:700; color:#e7dff1; }
+    .catalog-title{ margin:14px; font-size:16px; font-weight:600; color:#e7dff1; }
 
-    .table-wrap{
-      overflow-x:auto; /* mobile-friendly horizontal scroll */
-      -webkit-overflow-scrolling: touch;
+    .table-wrap{ width:100%; overflow:auto; }
+    .table{ width:100%; border-collapse:separate; border-spacing:0; }
+    .table thead th{
+      position:sticky; top:0; background:rgba(17,24,39,.7); backdrop-filter:blur(6px);
+      border-bottom:1px solid var(--border); text-align:left; padding:10px; font-size:13px; color:#cbd5e1;
     }
+    .table tbody td{ padding:10px; border-bottom:1px solid var(--border); font-size:14px; }
+    .table tbody tr:hover{ background:rgba(255,255,255,.03); }
 
-    /* Optional small-screen table comfort tweaks */
-    @media (max-width:760px){
-      .brand-row{ padding:12px; }
+    @media(max-width:760px){
       .toolbar{ flex-direction:column; align-items:stretch; }
-      .toolbar .actions{ width:100%; justify-content:space-between; }
+      .toolbar .actions{ justify-content:space-between; width:100%; }
       .catalog-title{ text-align:center; }
-      /* shrink padding inside table cells a bit (if your styles.css allows) */
-      .table th, .table td{ padding:8px 10px; }
     }
   </style>
 </head>
@@ -89,15 +123,32 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <main class="container">
-    <!-- Compact brand header (no navbar) -->
+  <!-- ===== Navbar (same as Overview) ===== -->
+  <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
 
+    <div class="tabs-wrap">
+      <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
+      <nav class="tabs" id="mainTabs">
+        <!-- Absolute file hrefs = safe fallback; data-route used for pretty URLs -->
+        <a href="/overview.html"     data-route="overview"     id="tabOverview">Overview</a>
+        <a href="/products.html"     data-route="products"     id="tabProducts" aria-current="page">Products</a>
+        <a href="/investments.html"  data-route="investments"  id="tabInvestments">Investments</a>
+        <a href="/sales.html"        data-route="sales"        id="tabSales">Sales</a>
+        <a href="/customers.html"    data-route="customers"    id="tabCustomers">Customers</a>
+        <a href="/boost.html"        data-route="boost"        id="tabBoost">Boost</a>
+        <a href="/backup.html"       data-route="backup"       id="tabBackup">Backup</a>
+        <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== Content ===== -->
+  <main class="container">
     <section class="section">
-      <!-- Title + sub -->
       <div class="page-head">
         <div>
           <h2>Products</h2>
@@ -105,13 +156,12 @@
         </div>
       </div>
 
-      <!-- Main card -->
       <div class="card">
         <!-- Toolbar -->
         <div class="toolbar">
           <input id="productSearch" placeholder="Search type, size, or color…" />
           <div class="actions">
-            <a id="manageAttrsLink" href="/manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
+            <a id="btnManage" href="/manage-attributes.html" data-route="attributes" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
             <button id="btnAddProduct" class="btn primary">➕ Add New Product</button>
           </div>
         </div>
@@ -142,30 +192,72 @@
   <script type="module" src="app.js"></script>
 
   <script>
-    // ----- Auth gate + pretty URL (/uid/products) -----
+    // ---------- Auth gate & pretty URL ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('/index.html');
         return;
       }
+
+      // Keep pretty URL while on this page
       const want = `/${encodeURIComponent(uid)}/products`;
-      if (location.pathname !== want) history.replaceState({}, '', want);
+      if (location.pathname !== want) {
+        history.replaceState({}, '', want);
+      }
+
+      // Wire navbar links: set pretty URL + load actual file (absolute path)
+      const nav = document.getElementById('mainTabs');
+      if (nav) {
+        nav.querySelectorAll('a[data-route]').forEach(a=>{
+          const route = a.getAttribute('data-route');
+          // Safe absolute file fallback
+          a.setAttribute('href', `/${route}.html`);
+
+          a.addEventListener('click', function(e){
+            // Let Logout handle itself
+            if (a.id === 'logoutBtn') return;
+            e.preventDefault();
+            history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+            location.assign(`/${route}.html`);
+          });
+        });
+      }
+
+      // Manage attributes button → pretty URL
+      const manage = document.getElementById('btnManage');
+      if (manage) {
+        manage.addEventListener('click', function(e){
+          e.preventDefault();
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/attributes`);
+          location.assign('/manage-attributes.html');
+        });
+      }
     })();
 
-    // ----- Pretty URL for Manage Attributes link (/uid/attributes) -----
+    // ---------- Mobile nav toggle ----------
     (function(){
-      const link = document.getElementById('manageAttrsLink');
-      if(!link) return;
-      link.addEventListener('click', (e)=>{
-        e.preventDefault();
-        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-        history.replaceState({}, '', `/${encodeURIComponent(uid)}/attributes`);
-        location.assign('/manage-attributes.html');
-      });
+      const tgl = document.getElementById('navToggle');
+      const tabs = document.getElementById('mainTabs');
+      if (!tgl || !tabs) return;
+      tgl.addEventListener('click', ()=> tabs.classList.toggle('show'));
     })();
+
+    // ---------- Logout (forget both storages) ----------
+    document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      sessionStorage.removeItem('pw_authed');
+      sessionStorage.removeItem('pw_userId');
+      localStorage.removeItem('pw_authed');
+      localStorage.removeItem('pw_userId');
+      history.replaceState({}, '', '/login');
+      location.replace('/index.html');
+    });
+
+    // (Page-specific product JS continues in app.js—search, table render, add product, etc.)
   </script>
 </body>
 </html>
