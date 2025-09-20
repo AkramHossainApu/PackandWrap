@@ -23,16 +23,13 @@
       // Decide what to do on root or /login
       var path = location.pathname;
       if (path === '/' || path.endsWith('/index.html') || path.endsWith('/login.html') || (p && decodeURIComponent(p) === '/login')) {
-        // If "remembered" (localStorage) OR active tab session, go to overview
-        var uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
-        var authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
-
-        if (authed && uid) {
+        // If remembered session, go to overview (app.js uses "currentUser")
+        var uid = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+        if (uid) {
           history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
           location.replace('/overview.html');
           return;
         }
-
         // Otherwise, keep pretty /login
         history.replaceState({}, '', '/login');
       }
@@ -262,7 +259,7 @@
 
   <!-- Login logic -->
   <script type="module">
-    import { loginUserById } from './app.js';
+    import { loginUser } from './app.js'; /* correct function from app.js */
 
     const form = document.getElementById('loginForm');
     const err  = document.getElementById('loginErr');
@@ -274,11 +271,10 @@
     // mark that module script is running; used by fallback below
     window.__loginWired = false;
 
-    // Also catch the case when user navigates directly to /login while remembered
+    // If user navigates to /login while already remembered
     (function(){
-      const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
-      const authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
-      if (authed && uid) {
+      const uid = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+      if (uid) {
         history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
         location.replace('/overview.html');
       }
@@ -291,27 +287,24 @@
 
     form.addEventListener('submit', async e=>{
       e.preventDefault(); clearError();  // creds never in URL
-      const userId = user.value.trim(); const pval = pw.value;
-      if(!userId || !pval){ showError('Please enter both User ID and password.'); return; }
+      const userIdOrName = user.value.trim(); const pval = pw.value;
+      if(!userIdOrName || !pval){ showError('Please enter both User ID and password.'); return; }
 
       form.classList.add('loading'); btn.textContent = 'Logging in…';
       try{
-        const res = await loginUserById(userId, pval);
-        if(res && res.ok){
-          // always set session for this tab
-          sessionStorage.setItem('pw_authed','1');
-          sessionStorage.setItem('pw_userId', res.userId);
+        const uid = await loginUser(userIdOrName, pval); // returns userId on success or falsy
+        if(uid){
+          // session for this tab
+          sessionStorage.setItem('currentUser', uid);
 
           // persist across tabs only if "Remember me" is checked
           if(remember.checked){
-            localStorage.setItem('pw_authed','1');
-            localStorage.setItem('pw_userId', res.userId);
+            localStorage.setItem('currentUser', uid);
           } else {
-            localStorage.removeItem('pw_authed');
-            localStorage.removeItem('pw_userId');
+            localStorage.removeItem('currentUser');
           }
 
-          history.replaceState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
           location.replace('/overview.html'); // absolute
         } else {
           showError('Invalid User ID or password. Please try again.');
@@ -328,7 +321,7 @@
     window.__loginWired = true;
   </script>
 
-  <!-- Fallback: if the module (or app.js) fails, still prevent reload and redirect properly -->
+  <!-- Fallback: if the module (or app.js) fails, DO NOT fake-login -->
   <script>
     (function(){
       function onReady(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
@@ -338,9 +331,7 @@
         var form = document.getElementById('loginForm');
         var user = document.getElementById('u');
         var pw = document.getElementById('p');
-        var remember = document.getElementById('remember');
         var err = document.getElementById('loginErr');
-        var btn = document.getElementById('loginBtn');
 
         if (!form) return;
 
@@ -353,20 +344,9 @@
             err.classList.add('show');
             return;
           }
-          // Optimistic fallback: store and go to overview
-          btn.textContent = 'Logging in…'; form.classList.add('loading');
-
-          sessionStorage.setItem('pw_authed','1');
-          sessionStorage.setItem('pw_userId', uid);
-          if (remember && remember.checked){
-            localStorage.setItem('pw_authed','1');
-            localStorage.setItem('pw_userId', uid);
-          } else {
-            localStorage.removeItem('pw_authed');
-            localStorage.removeItem('pw_userId');
-          }
-          history.replaceState({}, '', '/' + encodeURIComponent(uid) + '/overview');
-          location.replace('/overview.html');
+          // No optimistic redirect here; tell the user the app failed to load
+          err.textContent = 'Login temporarily unavailable (app failed to load). Please refresh the page.';
+          err.classList.add('show');
         });
       });
     })();
