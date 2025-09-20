@@ -75,8 +75,6 @@ export async function addUser(username, password, chosenId){
 }
 
 // ------------- LOGIN -------------
-// By design here: "username" == "userId" (lowercased + suffix if any)
-// So users can type their username (the same lowercase ID they saw).
 export async function loginWithNameOrId(identifier, password){
   const userId = sanitizeId(identifier);
   if(!userId) return { ok:false };
@@ -92,12 +90,19 @@ export async function loginWithNameOrId(identifier, password){
 }
 
 // ---- REQUIRED by index.html ----
-// Minimal wrapper so the page calls a consistent API.
 export async function loginUserById(userId, password){
   return loginWithNameOrId(userId, password);
 }
 
-// ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
+// ---- Small helpers for pages ----
+export function currentUserId(){
+  return sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
+}
+export function prettyFor(uid, page){ // page: 'overview', 'products', etc.
+  return `/${encodeURIComponent(uid)}/${page}`;
+}
+
+// ------------- Optional per-user KV -------------
 export const store = {
   async setUserKV(userId, key, value){
     await setDoc(doc(db, "users", userId, "kv", key), { value });

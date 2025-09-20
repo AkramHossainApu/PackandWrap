@@ -69,14 +69,14 @@
 
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
-      <nav class="tabs">
-        <a href="overview.html">Overview</a>
-        <a href="products.html" aria-current="page" id="productsTab">Products</a>
-        <a href="investments.html">Investments</a>
-        <a href="sales.html">Sales</a>
-        <a href="customers.html">Customers</a>
-        <a href="boost.html">Boost</a>
-        <a href="backup.html">Backup</a>
+      <nav class="tabs" id="mainTabs">
+        <a data-page="overview"  href="overview.html">Overview</a>
+        <a data-page="products"  href="products.html" aria-current="page" id="productsTab">Products</a>
+        <a data-page="investments" href="investments.html">Investments</a>
+        <a data-page="sales"      href="sales.html">Sales</a>
+        <a data-page="customers"  href="customers.html">Customers</a>
+        <a data-page="boost"      href="boost.html">Boost</a>
+        <a data-page="backup"     href="backup.html">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
@@ -97,7 +97,7 @@
         <div class="toolbar">
           <input id="productSearch" placeholder="Search type, size, or color…" />
           <div class="actions">
-            <a href="manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
+            <a data-page="manage-attributes" href="manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
             <button id="btnAddProduct" class="btn primary">➕ Add New Product</button>
           </div>
         </div>
@@ -125,30 +125,44 @@
   </main>
 
   <!-- Use module app.js so Firebase works -->
-  <script type="module" src="app.js"></script>
+  <script type="module">
+    import { currentUserId, prettyFor } from './app.js';
 
-  <script>
     // ---------- Auth gate & pretty URL ----------
     (function(){
-      // Accept either session (this tab) OR remembered login (localStorage)
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+      const uid = currentUserId();
 
-      // Not logged in anywhere → go to /login (index.html handles restoring pretty URL)
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('index.html');
         return;
       }
 
-      // Keep the address bar pretty: /{userId}/products
-      const want = `/${encodeURIComponent(uid)}/products`;
+      const want = prettyFor(uid, 'products');
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
     })();
 
-    // ---------- Logout (forgets remembered + session) ----------
+    // ---------- Pretty-URL navigation wiring (no more self-reloads) ----------
+    (function(){
+      const uid = currentUserId();
+      const tabs = document.getElementById('mainTabs');
+      if (!tabs || !uid) return;
+
+      tabs.querySelectorAll('a[data-page]').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const page = a.getAttribute('data-page');       // e.g. "products"
+          const file = a.getAttribute('href');            // e.g. "products.html"
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${page}`);
+          location.href = file;                           // load the real file
+        });
+      });
+    })();
+
+    // ---------- Logout (forget both storages) ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -158,6 +172,8 @@
       history.replaceState({}, '', '/login');
       location.replace('index.html');
     });
+
+    // (Your existing product JS / Firebase hooks continue as-is)
   </script>
 </body>
 </html>
