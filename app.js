@@ -91,6 +91,12 @@ export async function loginWithNameOrId(identifier, password){
   return { ok:true, userId };
 }
 
+// ---- REQUIRED by index.html ----
+// Minimal wrapper so the page calls a consistent API.
+export async function loginUserById(userId, password){
+  return loginWithNameOrId(userId, password);
+}
+
 // ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
 export const store = {
   async setUserKV(userId, key, value){
