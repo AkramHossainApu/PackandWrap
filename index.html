@@ -6,21 +6,34 @@
   <title>Pack & Wrap • Login</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Pretty URL + 404 fallback handling -->
+  <!-- Pretty URL + 404 fallback handling + root redirect -->
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
       var p = params.get('p');
+
+      // 404 fallback can land here with ?p=/some/pretty/path
       if (p && /^\/[^/]+\/overview$/.test(decodeURIComponent(p))) {
         var pretty = decodeURIComponent(p);
         history.replaceState({}, '', pretty);
-        location.replace('overview.html'); // relative path
+        location.replace('/overview.html'); // load the actual file
         return;
       }
+
+      // Decide what to do on root or /login
       var path = location.pathname;
-      if (p && decodeURIComponent(p) === '/login') {
-        history.replaceState({}, '', '/login');
-      } else if (path === '/' || path.endsWith('/index.html') || path.endsWith('/login.html')) {
+      if (path === '/' || path.endsWith('/index.html') || path.endsWith('/login.html') || (p && decodeURIComponent(p) === '/login')) {
+        // If "remembered" (localStorage) OR active tab session, go to overview
+        var uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
+        var authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
+
+        if (authed && uid) {
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
+          location.replace('/overview.html');
+          return;
+        }
+
+        // Otherwise, keep pretty /login
         history.replaceState({}, '', '/login');
       }
     })();
@@ -44,10 +57,10 @@
     .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
     .loading{ opacity:.7; pointer-events:none; }
     .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
-
-    /* make “Signup” (and any .btn link) not underlined */
-    .btn, .btn.alt, a.btn, a.btn.alt { text-decoration: none; }
     .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
+
+    /* remove underline for link styled as button */
+    a.btn, a.btn:visited { text-decoration: none; }
 
     /* Avatar wrapper — keeps figure inside the circle and matches page background */
     .avatar-wrap{ display:flex; justify-content:center; margin-bottom:10px; }
@@ -161,11 +174,11 @@
               <g class="armL" style="visibility: hidden;">
                 <polygon fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" points="121.3,98.4 111,59.7 149.8,49.3 169.8,85.4"/>
                 <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M134.4,53.5l19.3-5.2c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-10.3,2.8"/>
-                <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M150.9,59.4l26-7c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-21.3,5.7"/>
+                <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M150.9,59.4l26-7c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-21.3,5.7"/>
                 <g class="twoFingers">			
-                  <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M158.3,67.8l23.1-6.2c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-23.1,6.2"/>
+                  <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M158.3,67.8l23.1-6.2c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-23.1,6.2"/>
                   <path fill="#A9DDF3" d="M180.1,65l2.2-0.6c1.1-0.3,2.2,0.3,2.4,1.4v0c0.3,1.1-0.3,2.2-1.4,2.4l-2.2,0.6L180.1,65z"/>
-                  <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M160.8,77.5l19.4-5.2c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-18.3,4.9"/>
+                  <path fill="#DDF1FA" stroke="#3A5E77" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M160.8,77.5l19.4-5.2c2.7-0.7,5.4,0.9,6.1,3.5v0c0.7,2.7-0.9,5.4-3.5,6.1l-18.3,4.9"/>
                   <path fill="#A9DDF3" d="M178.8,75.7l2.2-0.6c1.1-0.3,2.2,0.3,2.4,1.4v0c0.3,1.1-0.3,2.2-1.4,2.4l-2.2,0.6L178.8,75.7z"/>
                 </g>
                 <path fill="#A9DDF3" d="M175.5,55.9l2.2-0.6c1.1-0.3,2.2,0.3,2.4,1.4v0c0.3,1.1-0.3,2.2-1.4,2.4l-2.2,0.6L175.5,55.9z"/>
@@ -247,78 +260,69 @@
     })();
   </script>
 
-  <!-- Login logic (no module; dynamic import inside to avoid full page reloads if import fails) -->
-  <script>
+  <!-- Login logic -->
+  <script type="module">
+    import { loginUserById } from './app.js';
+
+    const form = document.getElementById('loginForm');
+    const err  = document.getElementById('loginErr');
+    const btn  = document.getElementById('loginBtn');
+    const pw   = document.getElementById('p');
+    const user = document.getElementById('u');
+    const remember = document.getElementById('remember');
+
+    // Also catch the case when user navigates directly to /login while remembered
     (function(){
-      const form = document.getElementById('loginForm');
-      const err  = document.getElementById('loginErr');
-      const btn  = document.getElementById('loginBtn');
-      const pw   = document.getElementById('p');
-      const user = document.getElementById('u');
-      const remember = document.getElementById('remember');
-
-      function showError(msg){ err.textContent = msg; err.classList.add('show'); }
-      function clearError(){ err.textContent = ''; err.classList.remove('show'); }
-
-      // If already logged in (session or remembered), go straight to overview
-      (function(){
-        const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
-        const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-        if (authed && uid) {
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
-          location.replace('overview.html'); // relative path to avoid router loops
-        }
-      })();
-
-      user && user.focus();
-
-      form.addEventListener('submit', async (e)=>{
-        e.preventDefault();   // <— prevent page reload ALWAYS
-        clearError();
-
-        const userId = (user.value || '').trim();
-        const pval   = pw.value;
-        if(!userId || !pval){ showError('Please enter both User ID and password.'); return; }
-
-        form.classList.add('loading'); btn.textContent = 'Logging in…';
-
-        let loginFn = null;
-        try {
-          // Try to import your module (works when app.js exists); if it fails we still prevent reload.
-          const mod = await import('./app.js');
-          loginFn = mod && mod.loginUserById;
-        } catch(e) {
-          console.warn('login module import failed:', e);
-        }
-
-        try{
-          let res = { ok: true, userId }; // optimistic fallback so dev/test doesn’t reload
-          if (typeof loginFn === 'function') {
-            res = await loginFn(userId, pval);
-          }
-          if(res && res.ok && res.userId){
-            sessionStorage.setItem('pw_authed','1');
-            sessionStorage.setItem('pw_userId', res.userId);
-            if(remember.checked){
-              localStorage.setItem('pw_authed','1');
-              localStorage.setItem('pw_userId', res.userId);
-            }
-            history.replaceState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
-            location.replace('overview.html'); // relative
-          } else {
-            showError('Invalid User ID or password. Please try again.');
-          }
-        }catch(errDo){
-          console.error(errDo);
-          showError('Unable to sign you in right now.');
-        } finally {
-          form.classList.remove('loading'); btn.textContent = 'Login';
-        }
-      });
+      const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
+      const authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
+      if (authed && uid) {
+        history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
+        location.replace('/overview.html');
+      }
     })();
+
+    user.focus();
+
+    function showError(msg){ err.textContent = msg; err.classList.add('show'); }
+    function clearError(){ err.textContent = ''; err.classList.remove('show'); }
+
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); clearError();  // creds never in URL
+      const userId = user.value.trim(); const pval = pw.value;
+      if(!userId || !pval){ showError('Please enter both User ID and password.'); return; }
+
+      form.classList.add('loading'); btn.textContent = 'Logging in…';
+      try{
+        const res = await loginUserById(userId, pval);
+        if(res && res.ok){
+          // always set session for this tab
+          sessionStorage.setItem('pw_authed','1');
+          sessionStorage.setItem('pw_userId', res.userId);
+
+          // persist across tabs only if "Remember me" is checked
+          if(remember.checked){
+            localStorage.setItem('pw_authed','1');
+            localStorage.setItem('pw_userId', res.userId);
+          } else {
+            localStorage.removeItem('pw_authed');
+            localStorage.removeItem('pw_userId');
+          }
+
+          history.replaceState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
+          location.replace('/overview.html'); // absolute
+        } else {
+          showError('Invalid User ID or password. Please try again.');
+        }
+      }catch(e){
+        console.error(e);
+        showError('Unable to reach the server. Check your connection and try again.');
+      } finally {
+        form.classList.remove('loading'); btn.textContent = 'Login';
+      }
+    });
   </script>
 
-  <!-- Avatar JS (tracks caret in #u and opens mouth). No MorphSVG plugin required. -->
+  <!-- Avatar JS (unchanged except for exported spread/close) -->
   <script>
     (function(){
       if (typeof TweenMax === 'undefined') return;
@@ -354,7 +358,7 @@
 
       if (!mySVGBox || !userInput) return;
 
-      var screenCenter, svgCoords, inputScrollMax,
+      var screenCenter, svgCoords, inputCoords, inputScrollMax,
           chinMin = .5, dFromC, eyeScale = 1, eyesCovered = false;
 
       var eyeLCoords, eyeRCoords, noseCoords, mouthCoords, eyeLAngle, eyeLX, eyeLY, eyeRAngle, eyeRX, eyeRY,
@@ -424,8 +428,8 @@
         span.textContent = userInput.value.substr(carPos) || '.';
         div.appendChild(span);
 
-        var caretAbs = getPosition(span);
-        var caretX = caretAbs.x, caretY = caretAbs.y;
+        var caretAbs = getPosition(span);              // ABSOLUTE
+        var caretX = caretAbs.x, caretY = caretAbs.y;  // use as-is
 
         dFromC = screenCenter - caretX;
 
@@ -517,7 +521,8 @@
 
       // init
       (function init(){
-        var svgCoords = getPosition(mySVGBox);
+        svgCoords   = getPosition(mySVGBox);
+        inputCoords = getPosition(userInput);
         screenCenter = svgCoords.x + (mySVGBox.offsetWidth / 2);
         eyeLCoords = {x: svgCoords.x + 84,  y: svgCoords.y + 76};
         eyeRCoords = {x: svgCoords.x + 113, y: svgCoords.y + 76};
@@ -528,7 +533,7 @@
         userInput.addEventListener('blur',  ()=>{ setTimeout(resetFace,120); });
         userInput.addEventListener('input', onUserInput);
 
-        // Password section: hands stay on eyes; fingers toggle with show/hide
+        // Password section: hands stay on eyes; only fingers toggle on show/hide
         password.addEventListener('focus', ()=>{
           coverEyes();
           if (password.type === 'text') spreadFingers(); else closeFingers();
@@ -555,8 +560,11 @@
         TweenMax.set(armR,{x:-93,y:220,rotation:-105,transformOrigin:"top right"});
         TweenMax.set(mouth,{transformOrigin:"center center"});
 
+        // baseline mouth
         mouthSmallState();
+
         startBlinking(5);
+        inputScrollMax = userInput.scrollWidth;
 
         // expose small api for the eye button
         window.avatar = { spreadFingers, closeFingers };

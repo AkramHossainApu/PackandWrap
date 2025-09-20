@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Overview</title>
   <link rel="stylesheet" href="styles.css"/>
-
   <style>
     .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .page-head .title-wrap{ display:flex; flex-direction:column; gap:4px; }
@@ -27,31 +26,9 @@
     .chart-card{ padding:14px; }
     @media (max-width:1100px){ .kpi{ grid-template-columns: repeat(3, minmax(140px,1fr)); } .charts{ grid-template-columns:1fr; } }
     @media (max-width:680px){ .page-head{ flex-direction:column; align-items:flex-start; } .kpi{ grid-template-columns: repeat(2, minmax(140px,1fr)); } .highlights{ grid-template-columns:1fr; } }
-
     [data-animate]{ transition: transform .15s ease, filter .15s ease; }
     [data-animate].pulse{ transform: translateY(-1px); filter: drop-shadow(0 4px 12px rgba(236,72,153,.16)); }
   </style>
-
-  <!-- ✅ Early, robust auth + pretty URL gate (fixes the loop) -->
-  <script>
-    (function () {
-      var authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-      var uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-
-      // No auth → go to login (normalize pretty URL, but load index.html)
-      if (!authed || !uid) {
-        history.replaceState({}, '', '/login');
-        location.replace('index.html');
-        return;
-      }
-
-      // Keep the address bar pretty: /{userId}/overview (no reload)
-      var want = '/' + encodeURIComponent(uid) + '/overview';
-      if (location.pathname !== want) {
-        history.replaceState({}, '', want);
-      }
-    })();
-  </script>
 </head>
 
 <body class="bg-grad" id="page-overview">
@@ -95,7 +72,6 @@
         </div>
       </div>
 
-      <!-- KPI row -->
       <div class="kpi">
         <div class="card"><div class="label">1st Investment</div><div id="tInv1" class="value" data-animate>0 TK</div><div class="trend">Lifetime total</div></div>
         <div class="card"><div class="label">2nd Investment</div><div id="tInv2" class="value" data-animate>0 TK</div><div class="trend">Lifetime total</div></div>
@@ -122,23 +98,33 @@
   <script type="module" src="app.js"></script>
 
   <script>
-    // Small KPI pulse helper
+    // ---------- Auth gate & pretty URL ----------
+    (function(){
+      // Accept either session (this tab) OR remembered login (localStorage)
+      const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+
+      // Not logged in anywhere → go to /login (index.html handles restoring pretty URL)
+      if(!authed || !uid){
+        history.replaceState({}, '', '/login');
+        location.replace('index.html');
+        return;
+      }
+
+      // Keep the address bar pretty: /{userId}/overview
+      const want = `/${encodeURIComponent(uid)}/overview`;
+      if (location.pathname !== want) {
+        history.replaceState({}, '', want);
+      }
+    })();
+
+    // ---------- Simple micro-anim on KPI changes ----------
     const pulse = el => { el?.classList.add('pulse'); setTimeout(()=>el?.classList.remove('pulse'), 180); };
     const ids = ['tInv1','tInv2','tSell1','tSell2','tExp','tProfit','highlightCustomers','highlightBest','highlightLow'];
-    const obs = new MutationObserver(m=>{
-      m.forEach(mm=>{
-        if(mm.type==='childList'){
-          const el = mm.target;
-          if(el.hasAttribute('data-animate')) pulse(el);
-        }
-      });
-    });
-    ids.forEach(id=>{
-      const node = document.getElementById(id);
-      if(node) obs.observe(node, { childList:true });
-    });
+    const obs = new MutationObserver(m=>m.forEach(mm=>{ if(mm.type==='childList'){ const el=mm.target; if(el.hasAttribute('data-animate')) pulse(el); } }));
+    ids.forEach(id=>{ const n = document.getElementById(id); if(n) obs.observe(n, { childList:true }); });
 
-    // Logout keeps pretty /login in the bar and loads index.html
+    // ---------- Logout (forgets remembered + session) ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -148,6 +134,8 @@
       history.replaceState({}, '', '/login');
       location.replace('index.html');
     });
+
+    // (Your data-fetch/render logic can run below)
   </script>
 </body>
 </html>
