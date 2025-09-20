@@ -6,7 +6,7 @@
   <title>Pack & Wrap • Manage Attributes</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Pretty URL 404-fallback: allow /{userId}/attributes to load /manage-attributes.html -->
+  <!-- 404 fallback for pretty URL: /{userId}/attributes -->
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
@@ -14,12 +14,61 @@
       if (p && /^\/[^/]+\/attributes$/.test(decodeURIComponent(p))) {
         var pretty = decodeURIComponent(p);
         history.replaceState({}, '', pretty);
-        location.replace('/manage-attributes.html'); // load real file
+        location.replace('/manage-attributes.html');
       }
     })();
   </script>
 
   <style>
+    /* ===== Topbar (same as Overview) ===== */
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
+      border-bottom:1px solid var(--border);
+    }
+    .brand-row{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 16px;
+    }
+    .brand{
+      font-weight:900; letter-spacing:.3px; font-size:18px;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    .chip{
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+    }
+    .tabs-wrap{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 8px 10px 8px;
+    }
+    .nav-toggle{
+      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
+      padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:6px; border:1px solid var(--border); border-radius:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tabs a{
+      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
+    }
+    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
+    .tabs .btn.ghost{ margin-left:4px; }
+    @media (max-width:760px){
+      .nav-toggle{ display:inline-block; }
+      .tabs{ display:none; width:100%; flex-direction:column; }
+      .tabs.show{ display:flex; }
+      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
+      .tabs .btn.ghost{ margin-left:0; }
+    }
+
+    /* ===== Page UI ===== */
     .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
     .page-head h2{ margin:0; font-size:22px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
@@ -35,30 +84,27 @@
 </head>
 
 <body id="page-manage" class="bg-grad">
-  <!-- Floating background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar (same structure as Overview) -->
+  <!-- Navbar -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
-
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <!-- Absolute hrefs as fallback; data-route used for pretty URLs -->
-        <a href="/overview.html"    data-route="overview"   id="tabOverview">Overview</a>
-        <a href="/products.html"    data-route="products"   id="tabProducts">Products</a>
-        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
-        <a href="/sales.html"       data-route="sales"      id="tabSales">Sales</a>
-        <a href="/customers.html"   data-route="customers"  id="tabCustomers">Customers</a>
-        <a href="/boost.html"       data-route="boost"      id="tabBoost">Boost</a>
-        <a href="/backup.html"      data-route="backup"     id="tabBackup">Backup</a>
+        <a href="/overview.html"     data-route="overview"     id="tabOverview">Overview</a>
+        <a href="/products.html"     data-route="products"     id="tabProducts">Products</a>
+        <a href="/investments.html"  data-route="investments"  id="tabInvestments">Investments</a>
+        <a href="/sales.html"        data-route="sales"        id="tabSales">Sales</a>
+        <a href="/customers.html"    data-route="customers"    id="tabCustomers">Customers</a>
+        <a href="/boost.html"        data-route="boost"        id="tabBoost">Boost</a>
+        <a href="/backup.html"       data-route="backup"       id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
@@ -78,73 +124,56 @@
       </div>
 
       <div class="grid-attrs">
-        <!-- Types -->
         <div class="card">
           <h3>Types</h3>
-          <div class="table-wrap">
-            <table class="table" id="typeTable"><tbody></tbody></table>
-          </div>
+          <div class="table-wrap"><table class="table" id="typeTable"><tbody></tbody></table></div>
           <div class="flex-between mt">
-            <input id="newType" placeholder="New type"/>
-            <button class="btn primary" id="btnAddType">Add</button>
+            <input id="newType" placeholder="New type"/><button class="btn primary" id="btnAddType">Add</button>
           </div>
         </div>
 
-        <!-- Sizes -->
         <div class="card">
           <h3>Sizes</h3>
-          <div class="table-wrap">
-            <table class="table" id="sizeTable"><tbody></tbody></table>
-          </div>
+          <div class="table-wrap"><table class="table" id="sizeTable"><tbody></tbody></table></div>
           <div class="flex-between mt">
-            <input id="newSize" placeholder="New size"/>
-            <button class="btn primary" id="btnAddSize">Add</button>
+            <input id="newSize" placeholder="New size"/><button class="btn primary" id="btnAddSize">Add</button>
           </div>
         </div>
 
-        <!-- Colors -->
         <div class="card">
           <h3>Colors</h3>
-          <div class="table-wrap">
-            <table class="table" id="colorTable"><tbody></tbody></table>
-          </div>
+          <div class="table-wrap"><table class="table" id="colorTable"><tbody></tbody></table></div>
           <div class="flex-between mt">
-            <input id="newColor" placeholder="New color"/>
-            <button class="btn primary" id="btnAddColor">Add</button>
+            <input id="newColor" placeholder="New color"/><button class="btn primary" id="btnAddColor">Add</button>
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- ES module so Firestore + per-user store works -->
+  <!-- Firebase/app logic -->
   <script type="module" src="app.js"></script>
 
   <script>
-    // ---------- Auth gate + enforce pretty URL (/userId/attributes) ----------
+    // ----- Auth gate + pretty URL (/uid/attributes) -----
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('/index.html');
         return;
       }
-
       const want = `/${encodeURIComponent(uid)}/attributes`;
-      if (location.pathname !== want) {
-        history.replaceState({}, '', want);
-      }
+      if (location.pathname !== want) history.replaceState({}, '', want);
     })();
 
-    // ---------- Wire navbar tabs to pretty URLs ----------
+    // ----- Navbar routing (pretty URL + actual file) -----
     (function(){
       const tabs = document.getElementById('mainTabs');
       if (!tabs) return;
-
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-      const routeToFile = {
+      const map = {
         overview:'overview',
         products:'products',
         investments:'investments',
@@ -153,12 +182,11 @@
         boost:'boost',
         backup:'backup'
       };
-
       tabs.querySelectorAll('a[data-route]').forEach(a=>{
         a.addEventListener('click', (e)=>{
           const route = a.dataset.route;
-          const file  = routeToFile[route] || route;
-          if (!route || !file) return; // default
+          const file  = map[route] || route;
+          if (!route || !file) return;
           e.preventDefault();
           history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
           location.assign(`/${file}.html`);
@@ -166,37 +194,34 @@
       });
     })();
 
-    // ---------- Back to Products (pretty URL) ----------
+    // ----- Back to Products (pretty URL) -----
     (function(){
       const link = document.getElementById('backToProducts');
       if(!link) return;
       link.addEventListener('click', (e)=>{
-        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
         e.preventDefault();
+        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
         history.replaceState({}, '', `/${encodeURIComponent(uid)}/products`);
         location.assign('/products.html');
       });
     })();
 
-    // ---------- Mobile nav toggle ----------
+    // ----- Mobile nav toggle -----
     document.getElementById('navToggle')?.addEventListener('click', ()=>{
-      document.querySelector('.tabs-wrap')?.classList.toggle('open');
+      document.getElementById('mainTabs')?.classList.toggle('show');
     });
 
-    // ---------- Logout ----------
+    // ----- Logout -----
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
-      sessionStorage.removeItem('pw_authed');
-      sessionStorage.removeItem('pw_userId');
-      localStorage.removeItem('pw_authed');
-      localStorage.removeItem('pw_userId');
+      sessionStorage.removeItem('pw_authed'); sessionStorage.removeItem('pw_userId');
+      localStorage.removeItem('pw_authed');  localStorage.removeItem('pw_userId');
       history.replaceState({}, '', '/login');
       location.replace('/index.html');
     });
 
-    // ---------- Initial render for attribute lists (IDs kept the same) ----------
+    // ----- Kick off attribute rendering (functions live in app.js) -----
     window.addEventListener('DOMContentLoaded', ()=>{
-      // These are exposed by app.js (non-module globals)
       window.renderTypes && window.renderTypes();
       window.renderSizes && window.renderSizes();
       window.renderColors && window.renderColors();
