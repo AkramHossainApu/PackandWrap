@@ -34,6 +34,12 @@
   </script>
 
   <style>
+    :root{
+      /* tweak these two to micro-adjust placement */
+      --bunny-head-top: -76px;  /* head behind card: less negative = further back */
+      --bunny-paws-top: -22px;  /* paws sit half on/half off the top edge */
+    }
+
     /* Page centering */
     body{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
 
@@ -41,14 +47,19 @@
     .auth-shell{ position:relative; width:100%; max-width:520px; }
 
     /* Login card */
-    .auth-wrap{ position:relative; z-index:3; width:100%; padding:20px; padding-top:54px; } /* extra headroom under paws */
+    .auth-wrap{
+      position:relative; z-index:3; width:100%;
+      padding:20px; padding-top:62px; /* more headroom under paws */
+    }
     .auth-header{ text-align:center; margin-bottom:8px; }
     .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
     .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
+
     .field{ display:grid; gap:6px; margin-bottom:12px; }
     .field .row{ display:flex; gap:8px; align-items:center; }
     .field .row input{ flex:1; }
     .actions{ display:grid; gap:10px; margin-top:12px; }
+
     .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
     a.btn,a.btn:visited{ text-decoration:none; }
     .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
@@ -56,28 +67,29 @@
     .err-banner{ display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; font-size:14px; }
     .err-banner.show{ display:block; }
     .loading{ opacity:.7; pointer-events:none; }
-    #togglePw{ position:relative; z-index:5; }
+    #togglePw{ position:relative; z-index:6; }
 
     /* ---------------- Bunny layout ---------------- */
 
-    /* Head sits BEHIND the card (ears/head peek). */
+    /* Head sits BEHIND the card (ears + a tiny chin peek). */
     .bunny-head{
-      position:absolute; left:50%; top:-94px; transform:translateX(-50%);
+      position:absolute; left:50%; top:var(--bunny-head-top); transform:translateX(-50%);
       width:220px; height:200px; z-index:1; pointer-events:none;
-      /* slight lift when focused in inputs */
       transition: transform .25s ease;
     }
-    .bunny-head.focused{ transform:translateX(-50%) translateY(-2px); }
+    .bunny-head.focused{ transform:translateX(-50%) translateY(-1px); }
 
-    /* Paws sit ON the card edge (in front). */
+    /* Paws sit ON the card edge (in front), half on/half off. */
     .bunny-paws{
-      position:absolute; left:50%; top:-8px; transform:translateX(-50%);
-      width:220px; height:80px; z-index:5; pointer-events:none;
+      position:absolute; left:50%; top:var(--bunny-paws-top); transform:translateX(-50%);
+      width:220px; height:88px; z-index:5; pointer-events:none;
+      filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
     }
-    /* a little soft shadow under paws to sell the contact */
+
+    /* Soft, very subtle shadow touching the ledge */
     .ledge-shadow{
-      position:absolute; left:24px; right:24px; top:0; height:12px; z-index:4; pointer-events:none;
-      background: radial-gradient(ellipse at center, rgba(0,0,0,.22), rgba(0,0,0,0));
+      position:absolute; left:24px; right:24px; top:-2px; height:14px; z-index:4; pointer-events:none;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,.22), rgba(0,0,0,0) 70%);
       filter: blur(6px); opacity:.35;
     }
 
@@ -93,7 +105,7 @@
   </div>
 
   <div class="auth-shell">
-    <!-- Bunny head (behind card) -->
+    <!-- Bunny head (behind card, chin barely peeking) -->
     <svg class="bunny-head" viewBox="0 0 220 200" aria-hidden="true">
       <!-- Ears -->
       <g>
@@ -107,7 +119,7 @@
       <g id="bHead" transform="translate(0,24)">
         <circle cx="110" cy="104" r="50" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
 
-        <!-- Eyes (we’ll nudge with GSAP) -->
+        <!-- Eyes -->
         <g class="eyeL">
           <circle cx="88" cy="100" r="7.2" fill="#2a2a2a"/>
           <circle cx="86.8" cy="98.8" r="1.8" fill="#fff"/>
@@ -120,7 +132,7 @@
         <!-- Nose -->
         <path class="nose" d="M110 114c4.1 0 6.6-2.8 4.6-4.7l-3.4-3.4c-1.2-1.2-3.1-1.2-4.3 0l-3.5 3.5c-2 1.9 .5 4.6 4.6 4.6z" fill="#ff8ea1"/>
 
-        <!-- Mouth (3 states we swap by copying path d to .mouthBG) -->
+        <!-- Mouth (3 states) -->
         <defs>
           <path id="mSmall" d="M110 121c-7.5 0-14.2-2.3-19.8-6.1a3 3 0 0 1 3.3-5c4.7 3.1 10.4 4.9 16.5 4.9s11.7-1.8 16.5-4.9a3 3 0 0 1 3.3 5c-5.6 3.8-12.3 6.1-19.8 6.1z"/>
           <path id="mMed" d="M98 125c-5.5 0-10-4.5-10-10v-2.2c0-1.2 1-2.2 2.2-2.2h39.6c1.2 0 2.2 1 2.2 2.2v2.2c0 5.5-4.5 10-10 10H98z"/>
@@ -129,7 +141,6 @@
 
         <g class="mouth">
           <path class="mouthBG" fill="#617E92" d="M110 121c-7.5 0-14.2-2.3-19.8-6.1a3 3 0 0 1 3.3-5c4.7 3.1 10.4 4.9 16.5 4.9s11.7-1.8 16.5-4.9a3 3 0 0 1 3.3 5c-5.6 3.8-12.3 6.1-19.8 6.1z"/>
-          <!-- tongue + tooth clipping -->
           <clipPath id="mouthClip"><use href="#mLg"/></clipPath>
           <g clip-path="url(#mouthClip)">
             <circle class="tongue" cx="110" cy="126" r="9" fill="#cc4a6c"/>
@@ -140,22 +151,22 @@
       </g>
     </svg>
 
-    <!-- Paws (in front of card) -->
-    <svg class="bunny-paws" viewBox="0 0 220 80" aria-hidden="true">
+    <!-- Paws (in front of card, half on/half off) -->
+    <svg class="bunny-paws" viewBox="0 0 220 88" aria-hidden="true">
       <!-- left paw -->
       <g class="pawL">
-        <ellipse cx="76" cy="32" rx="28" ry="18" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
+        <ellipse cx="76" cy="44" rx="30" ry="20" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
         <g class="twoFingersL">
-          <ellipse cx="66" cy="30" rx="7.2" ry="5.2" fill="#ffd6de"/>
-          <ellipse cx="86" cy="30" rx="7.2" ry="5.2" fill="#ffd6de"/>
+          <ellipse cx="66" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
+          <ellipse cx="86" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
         </g>
       </g>
       <!-- right paw -->
       <g class="pawR">
-        <ellipse cx="144" cy="32" rx="28" ry="18" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
+        <ellipse cx="144" cy="44" rx="30" ry="20" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
         <g class="twoFingersR">
-          <ellipse cx="134" cy="30" rx="7.2" ry="5.2" fill="#ffd6de"/>
-          <ellipse cx="154" cy="30" rx="7.2" ry="5.2" fill="#ffd6de"/>
+          <ellipse cx="134" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
+          <ellipse cx="154" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
         </g>
       </g>
     </svg>
@@ -303,6 +314,7 @@
 
       const headBox  = document.querySelector('.bunny-head');
       const pawsBox  = document.querySelector('.bunny-paws');
+
       const eyeL     = headBox.querySelector('.eyeL');
       const eyeR     = headBox.querySelector('.eyeR');
       const nose     = headBox.querySelector('.nose');
@@ -323,7 +335,7 @@
 
       if (!headBox || !pawsBox || !userInput) return;
 
-      // Helpers
+      /* ---------- helpers ---------- */
       function setMouth(p){ if (p) mouthBG.setAttribute('d', p.getAttribute('d')); }
       function pagePos(el){ const r=el.getBoundingClientRect(); return {x:r.left+scrollX,y:r.top+scrollY,w:r.width,h:r.height}; }
       function angle(x1,y1,x2,y2){ return Math.atan2(y1-y2,x1-x2); }
@@ -359,10 +371,10 @@
         const mX  = Math.cos(mA)*5,  mY  = Math.sin(mA)*3;
         const mR  = Math.cos(mA)*2;
 
-        TweenMax.to(eyeL,.6,{x:-eLX,y:-eLY,ease:Expo.easeOut});
-        TweenMax.to(eyeR,.6,{x:-eRX,y:-eRY,ease:Expo.easeOut});
-        TweenMax.to(nose,.6,{x:-nX,y:-nY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
-        TweenMax.to(mouth,.6,{x:-mX,y:-mY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
+        TweenMax.to(eyeL,.55,{x:-eLX,y:-eLY,ease:Expo.easeOut});
+        TweenMax.to(eyeR,.55,{x:-eRX,y:-eRY,ease:Expo.easeOut});
+        TweenMax.to(nose,.55,{x:-nX,y:-nY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
+        TweenMax.to(mouth,.55,{x:-mX,y:-mY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
 
         document.body.removeChild(mirror);
       }
@@ -375,26 +387,32 @@
         else setMouth(mLg);
       }
 
-      // Paws choreography
+      /* ---------- paws choreography (calibrated to the eyes) ---------- */
       let covered = false;
+
+      // Rest: paws gripping the ledge, half on/half off the card.
       function pawsRest(){
-        TweenMax.to(pawL,.7,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut});
-        TweenMax.to(pawR,.7,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut,delay:.05});
+        TweenMax.to(pawL,.6,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut});
+        TweenMax.to(pawR,.6,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut,delay:.05});
       }
+
+      // Full cover: both paws up to eye level (fine-tuned for this layout).
       function coverEyes(){
         covered = true;
-        // From ledge (~y=32 in paws SVG) up to the eyes area (~y ~ -60 relative move)
-        TweenMax.to(pawL,.45,{x:-34,y:-70,rotation:-10,ease:Quad.easeOut});
-        TweenMax.to(pawR,.45,{x: 34,y:-70,rotation: 10,ease:Quad.easeOut,delay:.05});
-        TweenMax.to([twoL,twoR],.25,{y:-1,repeat:1,yoyo:true,ease:Power1.easeInOut});
+        // from rest (y≈0 in pawsBox), move up ~86px and slightly inward
+        TweenMax.to(pawL,.42,{x:-24,y:-86,rotation:-12,ease:Quad.easeOut});
+        TweenMax.to(pawR,.42,{x: 24,y:-86,rotation: 12,ease:Quad.easeOut,delay:.05});
+        TweenMax.to([twoL,twoR],.22,{y:-1,repeat:1,yoyo:true,ease:Power1.easeInOut});
       }
+
+      // Peek: left still covering, right drops to reveal one eye.
       function sneakPeek(){
         covered = true;
-        // Left still covers; right drops a bit so one eye can peek
-        TweenMax.to(pawL,.35,{x:-34,y:-70,rotation:-10,ease:Quad.easeOut});
-        TweenMax.to(pawR,.35,{x: 10,y:-46,rotation: 4, ease:Quad.easeOut});
-        TweenMax.to(twoR,.18,{y:-2,repeat:1,yoyo:true});
+        TweenMax.to(pawL,.34,{x:-24,y:-86,rotation:-12,ease:Quad.easeOut});
+        TweenMax.to(pawR,.30,{x: 10,y:-58,rotation: 6, ease:Quad.easeOut});
+        TweenMax.to(twoR,.16,{y:-2,repeat:1,yoyo:true});
       }
+
       function uncoverEyes(){
         covered = false;
         pawsRest();
@@ -403,20 +421,20 @@
       // Blink loop
       function blink(delay){
         delay = delay ? Math.floor(Math.random()*delay) : 1;
-        TweenMax.to([eyeL, eyeR], .08, {delay:delay, scaleY:.08, yoyo:true, repeat:1, transformOrigin:'center',
+        TweenMax.to([eyeL, eyeR], .08, {delay:delay, scaleY:.1, yoyo:true, repeat:1, transformOrigin:'center',
           onComplete:function(){ blink(10); }});
       }
 
       // Pop in on load
       (function init(){
-        // head rises from behind the card; paws slide onto the ledge
-        TweenMax.fromTo(headBox,.9,{y:40,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4)});
-        TweenMax.fromTo(pawsBox,.9,{y:30,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4),delay:.05});
+        // head rises from behind the card; paws slide on to grab the ledge
+        TweenMax.fromTo(headBox,.85,{y:36,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4)});
+        TweenMax.fromTo(pawsBox,.85,{y:32,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4),delay:.04});
 
         // Inputs
         userInput.addEventListener('focus', ()=>{ headBox.classList.add('focused'); onNameInput(); });
         userInput.addEventListener('input', onNameInput);
-        userInput.addEventListener('blur',  ()=>{ headBox.classList.remove('focused'); setTimeout(()=>TweenMax.to([eyeL,eyeR,nose,mouth],.6,{x:0,y:0,rotation:0,ease:Expo.easeOut}),120); });
+        userInput.addEventListener('blur',  ()=>{ headBox.classList.remove('focused'); setTimeout(()=>TweenMax.to([eyeL,eyeR,nose,mouth],.5,{x:0,y:0,rotation:0,ease:Expo.easeOut}),120); });
 
         password.addEventListener('focus', ()=>{
           coverEyes();
@@ -441,7 +459,7 @@
         pawsRest();
         blink(5);
 
-        // Small API for the toggle script
+        // Expose for the toggle handler
         window.bunny = { coverEyes, uncoverEyes, sneakPeek };
       })();
     })();
