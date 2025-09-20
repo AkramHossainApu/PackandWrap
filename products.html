@@ -6,6 +6,21 @@
   <title>Pack & Wrap • Products</title>
   <link rel="stylesheet" href="styles.css"/>
 
+  <!-- Pretty URL + 404 fallback handling -->
+  <script>
+    (function () {
+      // Handle 404 fallback that may land here with ?p=/some/pretty/path
+      var params = new URLSearchParams(location.search);
+      var p = params.get('p');
+      if (p && /^\/[^/]+\/products$/.test(decodeURIComponent(p))) {
+        var pretty = decodeURIComponent(p);
+        history.replaceState({}, '', pretty);
+        // load the actual file
+        location.replace('/products.html');
+      }
+    })();
+  </script>
+
   <style>
     /* -----------------------------
        Products (page-specific polish)
@@ -56,13 +71,13 @@
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs">
         <a href="overview.html">Overview</a>
-        <a href="products.html">Products</a>
+        <a href="products.html" aria-current="page" id="productsTab">Products</a>
         <a href="investments.html">Investments</a>
         <a href="sales.html">Sales</a>
         <a href="customers.html">Customers</a>
         <a href="boost.html">Boost</a>
         <a href="backup.html">Backup</a>
-        <a class="btn ghost" href="index.html" onclick="sessionStorage.removeItem('pw_authed')">Logout</a>
+        <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
   </header>
@@ -112,9 +127,37 @@
   <!-- Use module app.js so Firebase works -->
   <script type="module" src="app.js"></script>
 
-  <!-- Require auth -->
   <script>
-    if(sessionStorage.getItem('pw_authed')!=='1') location.href='index.html';
+    // ---------- Auth gate & pretty URL ----------
+    (function(){
+      // Accept either session (this tab) OR remembered login (localStorage)
+      const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+
+      // Not logged in anywhere → go to /login (index.html handles restoring pretty URL)
+      if(!authed || !uid){
+        history.replaceState({}, '', '/login');
+        location.replace('index.html');
+        return;
+      }
+
+      // Keep the address bar pretty: /{userId}/products
+      const want = `/${encodeURIComponent(uid)}/products`;
+      if (location.pathname !== want) {
+        history.replaceState({}, '', want);
+      }
+    })();
+
+    // ---------- Logout (forgets remembered + session) ----------
+    document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      sessionStorage.removeItem('pw_authed');
+      sessionStorage.removeItem('pw_userId');
+      localStorage.removeItem('pw_authed');
+      localStorage.removeItem('pw_userId');
+      history.replaceState({}, '', '/login');
+      location.replace('index.html');
+    });
   </script>
 </body>
 </html>

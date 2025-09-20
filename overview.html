@@ -6,26 +6,76 @@
   <title>Pack & Wrap • Overview</title>
   <link rel="stylesheet" href="styles.css"/>
   <style>
-    .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; }
-    .page-head .title-wrap{ display:flex; flex-direction:column; gap:4px; }
-    .page-head h2{ margin:0; font-size:22px; letter-spacing:.2px; }
-    .page-head .sub{ margin:0; color:var(--muted); font-size:13px; }
-    .quick-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-    .quick-actions .btn{ padding:8px 12px; border-radius:12px; }
-    .kpi{ display:grid; gap:10px; grid-template-columns: repeat(6, minmax(130px, 1fr)); }
-    .kpi .card{ padding:14px; display:grid; gap:6px; }
+    /* ===== Layout refresh ===== */
+    .page-head{
+      display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px;
+    }
+    .title-wrap{ display:grid; gap:6px; }
+    .title-wrap h2{ margin:0; font-size:24px; letter-spacing:.2px; }
+    .title-wrap .sub{ margin:0; color:var(--muted); font-size:13px; }
+
+    /* Top actions: single split "New" button (no duplicates) */
+    .actions-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .split{
+      display:inline-flex; border-radius:14px; overflow:hidden; box-shadow:0 6px 18px rgba(196,181,253,.18);
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+    }
+    .split button{
+      appearance:none; border:0; background:transparent; color:inherit; padding:8px 12px; cursor:pointer;
+    }
+    .split .primary{
+      background:linear-gradient(90deg,#a78bfa22,#f472b622);
+      font-weight:700;
+    }
+    .split .caret{ border-left:1px solid var(--border); }
+
+    /* Dropdown menu */
+    .menu{
+      position:relative;
+    }
+    .menu-panel{
+      position:absolute; right:0; top:40px; min-width:180px;
+      border:1px solid var(--border); border-radius:12px; padding:6px;
+      background:rgba(17,24,39,.9); backdrop-filter: blur(8px);
+      box-shadow:0 10px 22px rgba(0,0,0,.25);
+      display:none;
+    }
+    .menu-panel.show{ display:block; }
+    .menu-item{
+      display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; text-decoration:none;
+      color:inherit;
+    }
+    .menu-item:hover{ background:rgba(255,255,255,.08); }
+    .menu-item .emoji{ width:22px; text-align:center; }
+
+    /* KPI grid */
+    .kpi{
+      display:grid; gap:12px; grid-template-columns: repeat(6, minmax(150px, 1fr));
+    }
+    .kpi .card{ padding:14px; display:grid; gap:6px; border-radius:16px; }
     .kpi .label{ color:var(--muted); font-size:12px; }
-    .kpi .value{ font-size:20px; font-weight:800; letter-spacing:.2px; }
+    .kpi .value{ font-size:22px; font-weight:800; letter-spacing:.2px; }
     .kpi .trend{ font-size:12px; color:var(--muted); }
-    .highlights{ display:grid; gap:12px; grid-template-columns:repeat(3, minmax(180px,1fr)); }
-    .highlights .card{ padding:14px; display:grid; gap:6px; }
+
+    /* Highlights */
+    .highlights{
+      display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr)); margin-top:16px;
+    }
+    .highlights .card{ padding:14px; display:grid; gap:6px; border-radius:16px; }
     .highlights .label{ color:var(--muted); font-size:12px; }
     .highlights .value{ font-size:18px; font-weight:700; }
-    .charts{ display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+
+    /* Charts */
+    .charts{ display:grid; gap:12px; grid-template-columns:1fr 1fr; margin-top:16px; }
+    .chart-card{ padding:14px; border-radius:16px; }
     .chart-title{ margin:0 0 8px; color:#e7dff1; font-size:14px; }
-    .chart-card{ padding:14px; }
-    @media (max-width:1100px){ .kpi{ grid-template-columns: repeat(3, minmax(140px,1fr)); } .charts{ grid-template-columns:1fr; } }
-    @media (max-width:680px){ .page-head{ flex-direction:column; align-items:flex-start; } .kpi{ grid-template-columns: repeat(2, minmax(140px,1fr)); } .highlights{ grid-template-columns:1fr; } }
+
+    /* Responsiveness */
+    @media (max-width:1200px){ .kpi{ grid-template-columns: repeat(3, minmax(160px,1fr)); } }
+    @media (max-width:820px){ .page-head{ flex-direction:column; align-items:flex-start; } .charts{ grid-template-columns:1fr; } }
+    @media (max-width:640px){ .kpi{ grid-template-columns: repeat(2, minmax(160px,1fr)); } .highlights{ grid-template-columns:1fr; } }
+
+    /* Fun micro-anim on KPI changes */
     [data-animate]{ transition: transform .15s ease, filter .15s ease; }
     [data-animate].pulse{ transform: translateY(-1px); filter: drop-shadow(0 4px 12px rgba(236,72,153,.16)); }
   </style>
@@ -46,7 +96,7 @@
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs">
-        <a href="overview.html" id="overviewTab">Overview</a>
+        <a href="overview.html" id="overviewTab" aria-current="page">Overview</a>
         <a href="products.html">Products</a>
         <a href="investments.html">Investments</a>
         <a href="sales.html">Sales</a>
@@ -65,13 +115,24 @@
           <h2>Overview</h2>
           <p class="sub">At-a-glance totals and trends for your business.</p>
         </div>
-        <div class="quick-actions">
-          <a href="sales.html" class="btn primary">＋ Add Sale</a>
-          <a href="investments.html" class="btn">＋ Add Investment</a>
-          <a href="boost.html" class="btn">＋ Add Expense</a>
+
+        <!-- Single "New" split menu replaces three duplicate buttons -->
+        <div class="actions-bar">
+          <div class="menu">
+            <div class="split" role="group" aria-label="Create new">
+              <button class="primary" id="newPrimary" type="button">＋ New</button>
+              <button class="caret" id="newCaret" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="newMenu">▾</button>
+            </div>
+            <div class="menu-panel" id="newMenu" role="menu" aria-labelledby="newCaret">
+              <a class="menu-item" role="menuitem" href="sales.html#new"><span class="emoji">🧾</span><span>Sale</span></a>
+              <a class="menu-item" role="menuitem" href="investments.html#new"><span class="emoji">💸</span><span>Investment</span></a>
+              <a class="menu-item" role="menuitem" href="boost.html#new"><span class="emoji">📉</span><span>Expense</span></a>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- KPIs -->
       <div class="kpi">
         <div class="card"><div class="label">1st Investment</div><div id="tInv1" class="value" data-animate>0 TK</div><div class="trend">Lifetime total</div></div>
         <div class="card"><div class="label">2nd Investment</div><div id="tInv2" class="value" data-animate>0 TK</div><div class="trend">Lifetime total</div></div>
@@ -81,13 +142,15 @@
         <div class="card"><div class="label">Overall</div><div id="tProfit" class="value" data-animate>0 TK</div><div class="trend">Sales − Investments − Expenses</div></div>
       </div>
 
-      <div class="highlights" id="overviewHighlights" style="margin-top:16px;">
+      <!-- Highlights -->
+      <div class="highlights" id="overviewHighlights">
         <div class="card"><div class="label">Customers</div><div id="highlightCustomers" class="value" data-animate>0</div></div>
         <div class="card"><div class="label">Best Seller</div><div id="highlightBest" class="value" data-animate>—</div></div>
         <div class="card"><div class="label">Low Stock</div><div id="highlightLow" class="value" data-animate>All OK</div></div>
       </div>
 
-      <div class="charts" style="margin-top:16px;">
+      <!-- Charts -->
+      <div class="charts">
         <div class="card chart-card"><h3 class="chart-title">Daily Profit (after expenses)</h3><canvas id="chartProfit" style="width:100%;height:240px;"></canvas></div>
         <div class="card chart-card"><h3 class="chart-title">Sales vs Investment (Monthly)</h3><canvas id="chartSalesInv" style="width:100%;height:240px;"></canvas></div>
       </div>
@@ -100,22 +163,53 @@
   <script>
     // ---------- Auth gate & pretty URL ----------
     (function(){
-      // Accept either session (this tab) OR remembered login (localStorage)
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
-      // Not logged in anywhere → go to /login (index.html handles restoring pretty URL)
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
         location.replace('index.html');
         return;
       }
 
-      // Keep the address bar pretty: /{userId}/overview
       const want = `/${encodeURIComponent(uid)}/overview`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
+    })();
+
+    // ---------- Split "New" menu behavior ----------
+    (function(){
+      const caret = document.getElementById('newCaret');
+      const primary = document.getElementById('newPrimary');
+      const menu = document.getElementById('newMenu');
+
+      if (!caret || !menu || !primary) return;
+
+      function openMenu(){
+        menu.classList.add('show');
+        caret.setAttribute('aria-expanded','true');
+        // focus first item for accessibility
+        const first = menu.querySelector('.menu-item');
+        first && first.focus();
+      }
+      function closeMenu(){
+        menu.classList.remove('show');
+        caret.setAttribute('aria-expanded','false');
+      }
+      function toggleMenu(){
+        if (menu.classList.contains('show')) closeMenu(); else openMenu();
+      }
+
+      caret.addEventListener('click', toggleMenu);
+      primary.addEventListener('click', toggleMenu);
+
+      document.addEventListener('click', (e)=>{
+        if (!menu.contains(e.target) && !caret.contains(e.target) && !primary.contains(e.target)) closeMenu();
+      });
+      document.addEventListener('keydown', (e)=>{
+        if (e.key === 'Escape') closeMenu();
+      });
     })();
 
     // ---------- Simple micro-anim on KPI changes ----------
@@ -124,7 +218,7 @@
     const obs = new MutationObserver(m=>m.forEach(mm=>{ if(mm.type==='childList'){ const el=mm.target; if(el.hasAttribute('data-animate')) pulse(el); } }));
     ids.forEach(id=>{ const n = document.getElementById(id); if(n) obs.observe(n, { childList:true }); });
 
-    // ---------- Logout (forgets remembered + session) ----------
+    // ---------- Logout ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -135,7 +229,7 @@
       location.replace('index.html');
     });
 
-    // (Your data-fetch/render logic can run below)
+    // (Data fetch/render logic goes below)
   </script>
 </body>
 </html>
