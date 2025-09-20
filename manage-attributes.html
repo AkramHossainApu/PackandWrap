@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pack & Wrap • Manage Attributes</title>
+  <title>Pack & Wrap • Manage Types & Sizes</title>
   <link rel="stylesheet" href="styles.css"/>
 
   <!-- 404 fallback for pretty URL: /{userId}/attributes -->
@@ -20,16 +20,13 @@
   </script>
 
   <style>
-    /* ===== Topbar (same as Overview) ===== */
-    .topbar{
-      position:sticky; top:0; z-index:50;
-      backdrop-filter: blur(10px);
-      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-      border-bottom:1px solid var(--border);
-    }
+    /* ===== Page chrome (no navbar) ===== */
     .brand-row{
       display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:10px 16px;
+      padding:14px 16px; margin:12px 0;
+      border:1px solid var(--border); border-radius:16px;
+      background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(17,24,39,.45));
+      backdrop-filter: blur(8px);
     }
     .brand{
       font-weight:900; letter-spacing:.3px; font-size:18px;
@@ -40,191 +37,268 @@
     .chip{
       font-size:12px; padding:6px 10px; border-radius:999px;
       border:1px solid var(--border); background:rgba(255,255,255,.06);
-    }
-    .tabs-wrap{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding:0 8px 10px 8px;
-    }
-    .nav-toggle{
-      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
-      padding:8px 12px; border-radius:10px; cursor:pointer;
-    }
-    .tabs{
-      display:flex; gap:8px; flex-wrap:wrap;
-      padding:6px; border:1px solid var(--border); border-radius:12px;
-      background:rgba(255,255,255,.04);
-    }
-    .tabs a{
-      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
-      transition:background .15s ease, color .15s ease, transform .15s ease;
-    }
-    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
-    .tabs .btn.ghost{ margin-left:4px; }
-    @media (max-width:760px){
-      .nav-toggle{ display:inline-block; }
-      .tabs{ display:none; width:100%; flex-direction:column; }
-      .tabs.show{ display:flex; }
-      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
-      .tabs .btn.ghost{ margin-left:0; }
+      white-space:nowrap;
     }
 
-    /* ===== Page UI ===== */
-    .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
-    .page-head h2{ margin:0; font-size:22px; }
+    /* ===== Page head ===== */
+    .page-head{
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+    .page-head h2{ margin:0; font-size:22px; letter-spacing:.2px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
 
-    .grid-attrs{ display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr)); }
-    .grid-attrs .card{ padding:14px; display:grid; gap:10px; border-radius:16px; }
-    .grid-attrs h3{ margin:0; font-size:16px; }
-    .mt{ margin-top:10px; }
-    .flex-between{ display:flex; gap:10px; align-items:center; }
-    .flex-between input{ flex:1; }
-    @media(max-width:900px){ .grid-attrs{ grid-template-columns:1fr; } }
+    /* ===== Grid of cards ===== */
+    .grid{
+      display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr));
+    }
+    .card{ border-radius:16px; padding:14px; display:grid; gap:10px; }
+    .card h3{ margin:0; font-size:16px; color:#e7dff1; }
+
+    /* ===== Add row ===== */
+    .add-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .add-row input{
+      flex:1; min-width:180px;
+      height:40px; border-radius:12px; padding:8px 12px;
+      background:rgba(255,255,255,.06); border:1px solid var(--border); color:inherit;
+    }
+    .add-row .btn{ padding:8px 12px; border-radius:12px; }
+
+    /* ===== List ===== */
+    .list{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+    .item{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border:1px solid var(--border); border-radius:12px; padding:8px 10px;
+      background:rgba(255,255,255,.03);
+    }
+    .item .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .item .actions{ display:flex; gap:6px; }
+    .icon-btn{
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+      border-radius:10px; padding:6px 8px; cursor:pointer;
+    }
+
+    /* ===== Mobile tweaks ===== */
+    @media (max-width:980px){ .grid{ grid-template-columns:repeat(2, minmax(220px,1fr)); } }
+    @media (max-width:640px){
+      .grid{ grid-template-columns:1fr; }
+      .add-row{ flex-direction:column; align-items:stretch; }
+      .add-row .btn{ width:100%; }
+    }
   </style>
 </head>
 
-<body id="page-manage" class="bg-grad">
+<body id="page-attributes" class="bg-grad">
+  <!-- Floating figurines background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar -->
-  <header class="topbar">
+  <main class="container">
+    <!-- Compact brand header (no navbar) -->
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
-    <div class="tabs-wrap">
-      <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
-      <nav class="tabs" id="mainTabs">
-        <a href="/overview.html"     data-route="overview"     id="tabOverview">Overview</a>
-        <a href="/products.html"     data-route="products"     id="tabProducts">Products</a>
-        <a href="/investments.html"  data-route="investments"  id="tabInvestments">Investments</a>
-        <a href="/sales.html"        data-route="sales"        id="tabSales">Sales</a>
-        <a href="/customers.html"    data-route="customers"    id="tabCustomers">Customers</a>
-        <a href="/boost.html"        data-route="boost"        id="tabBoost">Boost</a>
-        <a href="/backup.html"       data-route="backup"       id="tabBackup">Backup</a>
-        <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
-      </nav>
-    </div>
-  </header>
 
-  <!-- Content -->
-  <main class="container">
     <section class="section">
       <div class="page-head">
         <div>
-          <h2>Manage Types / Sizes / Colors</h2>
-          <p class="sub">Keep your catalog attributes tidy and up to date.</p>
-        </div>
-        <div>
-          <a class="btn" href="/products.html" data-route="products" id="backToProducts">← Back to Products</a>
+          <h2>Manage Types &amp; Sizes</h2>
+          <p class="sub">Create and organize product attributes used across your catalog.</p>
         </div>
       </div>
 
-      <div class="grid-attrs">
-        <div class="card">
+      <!-- Attribute cards -->
+      <div class="grid">
+        <!-- TYPES -->
+        <div class="card" id="cardTypes">
           <h3>Types</h3>
-          <div class="table-wrap"><table class="table" id="typeTable"><tbody></tbody></table></div>
-          <div class="flex-between mt">
-            <input id="newType" placeholder="New type"/><button class="btn primary" id="btnAddType">Add</button>
+          <div class="add-row">
+            <input id="inputType" placeholder="New type (e.g., Poly Mailer)"/>
+            <button id="btnAddType" class="btn primary">＋ Add Type</button>
           </div>
+          <ul id="listTypes" class="list"></ul>
         </div>
 
-        <div class="card">
+        <!-- SIZES -->
+        <div class="card" id="cardSizes">
           <h3>Sizes</h3>
-          <div class="table-wrap"><table class="table" id="sizeTable"><tbody></tbody></table></div>
-          <div class="flex-between mt">
-            <input id="newSize" placeholder="New size"/><button class="btn primary" id="btnAddSize">Add</button>
+          <div class="add-row">
+            <input id="inputSize" placeholder="New size (e.g., 10x13)"/>
+            <button id="btnAddSize" class="btn primary">＋ Add Size</button>
           </div>
+          <ul id="listSizes" class="list"></ul>
         </div>
 
-        <div class="card">
+        <!-- COLORS (optional but handy) -->
+        <div class="card" id="cardColors">
           <h3>Colors</h3>
-          <div class="table-wrap"><table class="table" id="colorTable"><tbody></tbody></table></div>
-          <div class="flex-between mt">
-            <input id="newColor" placeholder="New color"/><button class="btn primary" id="btnAddColor">Add</button>
+          <div class="add-row">
+            <input id="inputColor" placeholder="New color (e.g., Black)"/>
+            <button id="btnAddColor" class="btn primary">＋ Add Color</button>
           </div>
+          <ul id="listColors" class="list"></ul>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Firebase/app logic -->
-  <script type="module" src="app.js"></script>
+  <!-- ES module import (uses your Firebase + helper store) -->
+  <script type="module">
+    import { store } from './app.js';
 
-  <script>
-    // ----- Auth gate + pretty URL (/uid/attributes) -----
-    (function(){
-      const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-      if(!authed || !uid){
-        history.replaceState({}, '', '/login');
-        location.replace('/index.html');
-        return;
-      }
-      const want = `/${encodeURIComponent(uid)}/attributes`;
-      if (location.pathname !== want) history.replaceState({}, '', want);
-    })();
-
-    // ----- Navbar routing (pretty URL + actual file) -----
-    (function(){
-      const tabs = document.getElementById('mainTabs');
-      if (!tabs) return;
-      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-      const map = {
-        overview:'overview',
-        products:'products',
-        investments:'investments',
-        sales:'sales',
-        customers:'customers',
-        boost:'boost',
-        backup:'backup'
-      };
-      tabs.querySelectorAll('a[data-route]').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          const route = a.dataset.route;
-          const file  = map[route] || route;
-          if (!route || !file) return;
-          e.preventDefault();
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
-          location.assign(`/${file}.html`);
-        });
-      });
-    })();
-
-    // ----- Back to Products (pretty URL) -----
-    (function(){
-      const link = document.getElementById('backToProducts');
-      if(!link) return;
-      link.addEventListener('click', (e)=>{
-        e.preventDefault();
-        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-        history.replaceState({}, '', `/${encodeURIComponent(uid)}/products`);
-        location.assign('/products.html');
-      });
-    })();
-
-    // ----- Mobile nav toggle -----
-    document.getElementById('navToggle')?.addEventListener('click', ()=>{
-      document.getElementById('mainTabs')?.classList.toggle('show');
-    });
-
-    // ----- Logout -----
-    document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
-      e.preventDefault();
-      sessionStorage.removeItem('pw_authed'); sessionStorage.removeItem('pw_userId');
-      localStorage.removeItem('pw_authed');  localStorage.removeItem('pw_userId');
+    // ---------- Auth gate + pretty URL (/uid/attributes) ----------
+    const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+    const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
+    if(!authed || !uid){
       history.replaceState({}, '', '/login');
       location.replace('/index.html');
+      throw new Error('Not authed');
+    }
+    const want = `/${encodeURIComponent(uid)}/attributes`;
+    if (location.pathname !== want) history.replaceState({}, '', want);
+
+    // ---------- Small helpers ----------
+    const $ = s => document.querySelector(s);
+    const el = {
+      types: $('#listTypes'),
+      sizes: $('#listSizes'),
+      colors: $('#listColors'),
+      inType: $('#inputType'),
+      inSize: $('#inputSize'),
+      inColor: $('#inputColor'),
+      addType: $('#btnAddType'),
+      addSize: $('#btnAddSize'),
+      addColor: $('#btnAddColor'),
+    };
+
+    const sanitize = (s='') => s.trim().replace(/\s+/g,' ').replace(/[<>]/g,'');
+    const uniqPush = (arr, v) => {
+      const exists = arr.some(x => (x||'').toLowerCase() === v.toLowerCase());
+      if (!exists) arr.push(v);
+      return arr;
+    };
+
+    // Render list utility
+    function renderList(key, values){
+      const target = key==='types' ? el.types : key==='sizes' ? el.sizes : el.colors;
+      target.innerHTML = '';
+      (values||[]).forEach((name, idx)=>{
+        const li = document.createElement('li');
+        li.className = 'item';
+        li.dataset.idx = idx;
+        li.innerHTML = `
+          <span class="name">${name}</span>
+          <span class="actions">
+            <button class="icon-btn" data-action="edit" title="Edit">✏️</button>
+            <button class="icon-btn" data-action="del" title="Delete">🗑</button>
+          </span>
+        `;
+        target.appendChild(li);
+      });
+      if(!values || values.length===0){
+        const empty = document.createElement('div');
+        empty.style.color = 'var(--muted)';
+        empty.style.fontSize = '13px';
+        empty.textContent = 'No items yet.';
+        target.appendChild(empty);
+      }
+    }
+
+    // Load + subscribe to user KV for each list
+    let model = { types: [], sizes: [], colors: [] };
+
+    const unsubTypes = store.subscribeUserKV(uid, 'types', (val)=>{
+      model.types = Array.isArray(val) ? val : (val?.list || []); // support legacy shape {list:[]}
+      renderList('types', model.types);
+    });
+    const unsubSizes = store.subscribeUserKV(uid, 'sizes', (val)=>{
+      model.sizes = Array.isArray(val) ? val : (val?.list || []);
+      renderList('sizes', model.sizes);
+    });
+    const unsubColors = store.subscribeUserKV(uid, 'colors', (val)=>{
+      model.colors = Array.isArray(val) ? val : (val?.list || []);
+      renderList('colors', model.colors);
     });
 
-    // ----- Kick off attribute rendering (functions live in app.js) -----
-    window.addEventListener('DOMContentLoaded', ()=>{
-      window.renderTypes && window.renderTypes();
-      window.renderSizes && window.renderSizes();
-      window.renderColors && window.renderColors();
+    // Persist helpers
+    const save = async (key) => {
+      const arr = model[key] || [];
+      await store.setUserKV(uid, key, arr);   // store as a plain array
+    };
+
+    // Add handlers
+    el.addType.addEventListener('click', async ()=>{
+      const v = sanitize(el.inType.value);
+      if(!v) return;
+      uniqPush(model.types, v);
+      el.inType.value = '';
+      await save('types');
+    });
+    el.addSize.addEventListener('click', async ()=>{
+      const v = sanitize(el.inSize.value);
+      if(!v) return;
+      uniqPush(model.sizes, v);
+      el.inSize.value = '';
+      await save('sizes');
+    });
+    el.addColor.addEventListener('click', async ()=>{
+      const v = sanitize(el.inColor.value);
+      if(!v) return;
+      uniqPush(model.colors, v);
+      el.inColor.value = '';
+      await save('colors');
+    });
+
+    // Enter-to-add
+    [el.inType, el.inSize, el.inColor].forEach((inp)=>{
+      inp.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const map = { inputType:'btnAddType', inputSize:'btnAddSize', inputColor:'btnAddColor' };
+          const btn = document.getElementById(map[inp.id]);
+          btn && btn.click();
+        }
+      });
+    });
+
+    // Edit / Delete via event delegation
+    function wireList(key, root){
+      root.addEventListener('click', async (e)=>{
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const idx = parseInt(btn.closest('.item')?.dataset.idx, 10);
+        if (Number.isNaN(idx)) return;
+
+        if (btn.dataset.action === 'del'){
+          model[key].splice(idx, 1);
+          await save(key);
+          return;
+        }
+        if (btn.dataset.action === 'edit'){
+          const current = model[key][idx];
+          const next = prompt('Edit value:', current);
+          const v = sanitize(next||'');
+          if (!v) return;
+          // prevent duplicates on edit
+          if (model[key].some((x, i)=> i!==idx && x.toLowerCase()===v.toLowerCase())){
+            alert('This value already exists.');
+            return;
+          }
+          model[key][idx] = v;
+          await save(key);
+        }
+      });
+    }
+    wireList('types', el.types);
+    wireList('sizes', el.sizes);
+    wireList('colors', el.colors);
+
+    // Clean up on unload
+    window.addEventListener('beforeunload', ()=>{
+      unsubTypes && unsubTypes(); unsubSizes && unsubSizes(); unsubColors && unsubColors();
     });
   </script>
 </body>

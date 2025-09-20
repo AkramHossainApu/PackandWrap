@@ -20,16 +20,13 @@
   </script>
 
   <style>
-    /* ===== Topbar redesign (same as Overview) ===== */
-    .topbar{
-      position:sticky; top:0; z-index:50;
-      backdrop-filter: blur(10px);
-      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-      border-bottom:1px solid var(--border);
-    }
+    /* ===== Page chrome (no navbar) ===== */
     .brand-row{
       display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:10px 16px;
+      padding:14px 16px; margin:12px 0;
+      border:1px solid var(--border); border-radius:16px;
+      background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(17,24,39,.45));
+      backdrop-filter: blur(8px);
     }
     .brand{
       font-weight:900; letter-spacing:.3px; font-size:18px;
@@ -40,93 +37,67 @@
     .chip{
       font-size:12px; padding:6px 10px; border-radius:999px;
       border:1px solid var(--border); background:rgba(255,255,255,.06);
-    }
-    .tabs-wrap{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding:0 8px 10px 8px;
-    }
-    .nav-toggle{
-      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
-      padding:8px 12px; border-radius:10px; cursor:pointer;
-    }
-    .tabs{
-      display:flex; gap:8px; flex-wrap:wrap;
-      padding:6px; border:1px solid var(--border); border-radius:12px;
-      background:rgba(255,255,255,.04);
-    }
-    .tabs a{
-      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
-      transition:background .15s ease, color .15s ease, transform .15s ease;
-    }
-    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
-    .tabs a[aria-current="page"]{
-      background:linear-gradient(90deg,#a78bfa22,#f472b622);
-      border:1px solid var(--border);
-      font-weight:700;
-    }
-    .tabs .btn.ghost{ margin-left:4px; }
-    @media (max-width:760px){
-      .nav-toggle{ display:inline-block; }
-      .tabs{ display:none; width:100%; flex-direction:column; }
-      .tabs.show{ display:flex; }
-      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
-      .tabs .btn.ghost{ margin-left:0; }
+      white-space:nowrap;
     }
 
-    /* ===== Page polish ===== */
+    /* ===== Page head ===== */
     .page-head{
-      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px;
+      flex-wrap:wrap;
     }
-    .page-head h2{ margin:0; font-size:22px; }
+    .page-head h2{ margin:0; font-size:22px; letter-spacing:.2px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
 
+    /* ===== Toolbar ===== */
     .toolbar{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-      margin-bottom:14px; --toolbar-h:64px;
+      margin-bottom:14px;
     }
-    .toolbar input{ flex:1; min-width:220px; }
+    .toolbar input{
+      flex:1; min-width:220px;
+      height:40px; border-radius:12px; padding:8px 12px;
+      background:rgba(255,255,255,.06); border:1px solid var(--border); color:inherit;
+    }
     .toolbar .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .toolbar .btn{ padding:8px 12px; border-radius:12px; }
 
-    .catalog-title{ margin:4px 0 10px; font-size:16px; font-weight:600; color:#e7dff1; }
-    @media(max-width:760px){
+    /* ===== Card / table ===== */
+    .card{ border-radius:16px; }
+    .catalog-title{ margin:6px 0 10px; font-size:16px; font-weight:700; color:#e7dff1; }
+
+    .table-wrap{
+      overflow-x:auto; /* mobile-friendly horizontal scroll */
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Optional small-screen table comfort tweaks */
+    @media (max-width:760px){
+      .brand-row{ padding:12px; }
       .toolbar{ flex-direction:column; align-items:stretch; }
-      .toolbar .actions{ justify-content:space-between; width:100%; }
+      .toolbar .actions{ width:100%; justify-content:space-between; }
       .catalog-title{ text-align:center; }
+      /* shrink padding inside table cells a bit (if your styles.css allows) */
+      .table th, .table td{ padding:8px 10px; }
     }
   </style>
 </head>
 
 <body id="page-products" class="bg-grad">
+  <!-- Floating figurines background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar -->
-  <header class="topbar">
+  <main class="container">
+    <!-- Compact brand header (no navbar) -->
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
-    <div class="tabs-wrap">
-      <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
-      <nav class="tabs" id="mainTabs">
-        <!-- Absolute hrefs are fallback; data-route drives pretty URLs -->
-        <a href="/overview.html"     data-route="overview"     id="tabOverview">Overview</a>
-        <a href="/products.html"     data-route="products"     id="tabProducts" aria-current="page">Products</a>
-        <a href="/investments.html"  data-route="investments"  id="tabInvestments">Investments</a>
-        <a href="/sales.html"        data-route="sales"        id="tabSales">Sales</a>
-        <a href="/customers.html"    data-route="customers"    id="tabCustomers">Customers</a>
-        <a href="/boost.html"        data-route="boost"        id="tabBoost">Boost</a>
-        <a href="/backup.html"       data-route="backup"       id="tabBackup">Backup</a>
-        <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
-      </nav>
-    </div>
-  </header>
 
-  <!-- Content -->
-  <main class="container">
     <section class="section">
+      <!-- Title + sub -->
       <div class="page-head">
         <div>
           <h2>Products</h2>
@@ -134,17 +105,20 @@
         </div>
       </div>
 
+      <!-- Main card -->
       <div class="card">
+        <!-- Toolbar -->
         <div class="toolbar">
           <input id="productSearch" placeholder="Search type, size, or color…" />
           <div class="actions">
-            <a id="manageAttrsLink" href="/manage-attributes.html" data-route="attributes" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
+            <a id="manageAttrsLink" href="/manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
             <button id="btnAddProduct" class="btn primary">➕ Add New Product</button>
           </div>
         </div>
 
         <div class="catalog-title">Catalog</div>
 
+        <!-- Products table -->
         <div class="table-wrap">
           <table class="table" id="productTable">
             <thead>
@@ -164,7 +138,7 @@
     </section>
   </main>
 
-  <!-- Firebase/app logic -->
+  <!-- Use module app.js so Firebase works -->
   <script type="module" src="app.js"></script>
 
   <script>
@@ -181,34 +155,7 @@
       if (location.pathname !== want) history.replaceState({}, '', want);
     })();
 
-    // ----- Navbar routing (pretty URL + actual file) -----
-    (function(){
-      const tabs = document.getElementById('mainTabs');
-      if (!tabs) return;
-      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-      const map = {
-        overview:'overview',
-        products:'products',
-        investments:'investments',
-        sales:'sales',
-        customers:'customers',
-        boost:'boost',
-        backup:'backup',
-        attributes:'manage-attributes' // external link below uses this
-      };
-      tabs.querySelectorAll('a[data-route]').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          const route = a.dataset.route;
-          const file  = map[route] || route;
-          if (!route || !file) return;
-          e.preventDefault();
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
-          location.assign(`/${file}.html`);
-        });
-      });
-    })();
-
-    // ----- Manage Attributes deep-link (pretty URL) -----
+    // ----- Pretty URL for Manage Attributes link (/uid/attributes) -----
     (function(){
       const link = document.getElementById('manageAttrsLink');
       if(!link) return;
@@ -219,20 +166,6 @@
         location.assign('/manage-attributes.html');
       });
     })();
-
-    // ----- Mobile nav toggle -----
-    document.getElementById('navToggle')?.addEventListener('click', ()=>{
-      document.getElementById('mainTabs')?.classList.toggle('show');
-    });
-
-    // ----- Logout -----
-    document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
-      e.preventDefault();
-      sessionStorage.removeItem('pw_authed'); sessionStorage.removeItem('pw_userId');
-      localStorage.removeItem('pw_authed');  localStorage.removeItem('pw_userId');
-      history.replaceState({}, '', '/login');
-      location.replace('/index.html');
-    });
   </script>
 </body>
 </html>
