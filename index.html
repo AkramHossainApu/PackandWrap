@@ -279,12 +279,12 @@
       try{
         const res = await loginUserById(userId, pval);
         if(res.ok){
+          // ALWAYS set both storage buckets so overview.html can read either.
           sessionStorage.setItem('pw_authed','1');
           sessionStorage.setItem('pw_userId', res.userId);
-          if(remember.checked){
-            localStorage.setItem('pw_authed','1');
-            localStorage.setItem('pw_userId', res.userId);
-          }
+          localStorage.setItem('pw_authed','1');            /* <-- changed: set regardless of "Remember" */
+          localStorage.setItem('pw_userId', res.userId);    /* <-- changed: set regardless of "Remember" */
+
           history.replaceState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
           location.replace('/overview.html'); // absolute
         } else {
