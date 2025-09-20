@@ -6,25 +6,21 @@
   <title>Pack & Wrap • Products</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Pretty URL + 404 fallback handling -->
+  <!-- Pretty URL 404-fallback: allow /{userId}/products to load /products.html -->
   <script>
     (function () {
-      // Handle 404 fallback that may land here with ?p=/some/pretty/path
       var params = new URLSearchParams(location.search);
       var p = params.get('p');
       if (p && /^\/[^/]+\/products$/.test(decodeURIComponent(p))) {
         var pretty = decodeURIComponent(p);
         history.replaceState({}, '', pretty);
-        // load the actual file
-        location.replace('/products.html');
+        location.replace('/products.html'); // load real file
       }
     })();
   </script>
 
   <style>
-    /* -----------------------------
-       Products (page-specific polish)
-       ----------------------------- */
+    /* Page head */
     .page-head{
       display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px;
       flex-wrap:wrap;
@@ -32,7 +28,7 @@
     .page-head h2{ margin:0; font-size:22px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
 
-    /* Toolbar overrides for this page */
+    /* Toolbar */
     .toolbar{
       display:flex; align-items:center; gap:12px; flex-wrap:wrap;
       margin-bottom:14px; --toolbar-h:64px;
@@ -40,10 +36,10 @@
     .toolbar input{ flex:1; min-width:220px; }
     .toolbar .actions{ display:flex; gap:8px; flex-wrap:wrap; }
 
-    /* Table headings context */
+    /* Table context */
     .catalog-title{ margin:4px 0 10px; font-size:16px; font-weight:600; color:#e7dff1; }
 
-    /* Responsive tweaks */
+    /* Responsive */
     @media(max-width:760px){
       .toolbar{ flex-direction:column; align-items:stretch; }
       .toolbar .actions{ justify-content:space-between; width:100%; }
@@ -53,14 +49,13 @@
 </head>
 
 <body id="page-products" class="bg-grad">
-
   <!-- Floating figurines background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar -->
+  <!-- Navbar (same structure as Overview) -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
@@ -70,13 +65,14 @@
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <a data-page="overview"  href="overview.html">Overview</a>
-        <a data-page="products"  href="products.html" aria-current="page" id="productsTab">Products</a>
-        <a data-page="investments" href="investments.html">Investments</a>
-        <a data-page="sales"      href="sales.html">Sales</a>
-        <a data-page="customers"  href="customers.html">Customers</a>
-        <a data-page="boost"      href="boost.html">Boost</a>
-        <a data-page="backup"     href="backup.html">Backup</a>
+        <!-- Absolute hrefs as fallback; data-route used for pretty URLs -->
+        <a href="/overview.html"    data-route="overview"   id="tabOverview">Overview</a>
+        <a href="/products.html"    data-route="products"   id="tabProducts" aria-current="page">Products</a>
+        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
+        <a href="/sales.html"       data-route="sales"      id="tabSales">Sales</a>
+        <a href="/customers.html"   data-route="customers"  id="tabCustomers">Customers</a>
+        <a href="/boost.html"       data-route="boost"      id="tabBoost">Boost</a>
+        <a href="/backup.html"      data-route="backup"     id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
@@ -97,14 +93,14 @@
         <div class="toolbar">
           <input id="productSearch" placeholder="Search type, size, or color…" />
           <div class="actions">
-            <a data-page="manage-attributes" href="manage-attributes.html" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
+            <a id="manageAttrsLink" href="/manage-attributes.html" data-route="attributes" class="btn ghost">⚙ Manage Types &amp; Sizes</a>
             <button id="btnAddProduct" class="btn primary">➕ Add New Product</button>
           </div>
         </div>
 
         <div class="catalog-title">Catalog</div>
 
-        <!-- Products table -->
+        <!-- Products table (IDs kept for existing logic) -->
         <div class="table-wrap">
           <table class="table" id="productTable">
             <thead>
@@ -124,45 +120,73 @@
     </section>
   </main>
 
-  <!-- Use module app.js so Firebase works -->
-  <script type="module">
-    import { currentUserId, prettyFor } from './app.js';
+  <!-- ES module for Firebase + app logic -->
+  <script type="module" src="app.js"></script>
 
-    // ---------- Auth gate & pretty URL ----------
+  <script>
+    // ---------- Auth gate + enforce pretty URL (/userId/products) ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-      const uid = currentUserId();
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
-        location.replace('index.html');
+        location.replace('/index.html');
         return;
       }
 
-      const want = prettyFor(uid, 'products');
+      const want = `/${encodeURIComponent(uid)}/products`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
     })();
 
-    // ---------- Pretty-URL navigation wiring (no more self-reloads) ----------
+    // ---------- Wire navbar tabs to pretty URLs (safe fallback kept) ----------
     (function(){
-      const uid = currentUserId();
       const tabs = document.getElementById('mainTabs');
-      if (!tabs || !uid) return;
+      if (!tabs) return;
 
-      tabs.querySelectorAll('a[data-page]').forEach(a=>{
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
+      const routeToFile = {
+        overview:'overview',
+        products:'products',
+        investments:'investments',
+        sales:'sales',
+        customers:'customers',
+        boost:'boost',
+        backup:'backup'
+      };
+
+      tabs.querySelectorAll('a[data-route]').forEach(a=>{
         a.addEventListener('click', (e)=>{
+          const route = a.dataset.route;
+          const file  = routeToFile[route] || route;
+          if (!route || !file) return; // default
           e.preventDefault();
-          const page = a.getAttribute('data-page');       // e.g. "products"
-          const file = a.getAttribute('href');            // e.g. "products.html"
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${page}`);
-          location.href = file;                           // load the real file
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+          location.assign(`/${file}.html`);
         });
       });
     })();
 
-    // ---------- Logout (forget both storages) ----------
+    // ---------- Manage Attributes link → pretty /{uid}/attributes ----------
+    (function(){
+      const link = document.getElementById('manageAttrsLink');
+      if(!link) return;
+      link.addEventListener('click', (e)=>{
+        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
+        e.preventDefault();
+        history.replaceState({}, '', `/${encodeURIComponent(uid)}/attributes`);
+        location.assign('/manage-attributes.html');
+      });
+    })();
+
+    // ---------- Mobile nav toggle ----------
+    document.getElementById('navToggle')?.addEventListener('click', ()=>{
+      document.querySelector('.tabs-wrap')?.classList.toggle('open');
+    });
+
+    // ---------- Logout ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
       e.preventDefault();
       sessionStorage.removeItem('pw_authed');
@@ -170,10 +194,8 @@
       localStorage.removeItem('pw_authed');
       localStorage.removeItem('pw_userId');
       history.replaceState({}, '', '/login');
-      location.replace('index.html');
+      location.replace('/index.html');
     });
-
-    // (Your existing product JS / Firebase hooks continue as-is)
   </script>
 </body>
 </html>

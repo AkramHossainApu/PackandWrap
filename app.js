@@ -57,7 +57,6 @@ export async function addUser(username, password, chosenId){
   if (!usernameLower) throw new Error('Username required');
   if (!userId) throw new Error('User ID required');
 
-  // Availability = does /users/{userId} exist?
   const userRef = doc(db, "users", userId);
   const exists  = (await getDoc(userRef)).exists();
   if (exists) throw new Error("User ID already exists");
@@ -89,16 +88,16 @@ export async function loginWithNameOrId(identifier, password){
   return { ok:true, userId };
 }
 
-// ---- REQUIRED by index.html ----
+// Required by index.html
 export async function loginUserById(userId, password){
   return loginWithNameOrId(userId, password);
 }
 
-// ---- Small helpers for pages ----
+// Helpers for pretty URLs & current user
 export function currentUserId(){
   return sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
 }
-export function prettyFor(uid, page){ // page: 'overview', 'products', etc.
+export function prettyFor(uid, page){ // 'overview', 'products', ...
   return `/${encodeURIComponent(uid)}/${page}`;
 }
 

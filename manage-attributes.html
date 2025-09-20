@@ -6,36 +6,42 @@
   <title>Pack & Wrap • Manage Attributes</title>
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Pretty URL + 404 fallback handling -->
+  <!-- Pretty URL 404-fallback: allow /{userId}/attributes to load /manage-attributes.html -->
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
       var p = params.get('p');
-      if (p && /^\/[^/]+\/manage-attributes$/.test(decodeURIComponent(p))) {
+      if (p && /^\/[^/]+\/attributes$/.test(decodeURIComponent(p))) {
         var pretty = decodeURIComponent(p);
         history.replaceState({}, '', pretty);
-        location.replace('/manage-attributes.html');
+        location.replace('/manage-attributes.html'); // load real file
       }
     })();
   </script>
 
   <style>
-    .page-head{
-      display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;
-    }
+    .page-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
     .page-head h2{ margin:0; font-size:22px; }
     .page-head .sub{ margin:0; font-size:13px; color:var(--muted); }
-    .toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+
+    .grid-attrs{ display:grid; gap:12px; grid-template-columns:repeat(3, minmax(220px,1fr)); }
+    .grid-attrs .card{ padding:14px; display:grid; gap:10px; border-radius:16px; }
+    .grid-attrs h3{ margin:0; font-size:16px; }
+    .mt{ margin-top:10px; }
+    .flex-between{ display:flex; gap:10px; align-items:center; }
+    .flex-between input{ flex:1; }
+    @media(max-width:900px){ .grid-attrs{ grid-template-columns:1fr; } }
   </style>
 </head>
 
-<body id="page-manage-attrs" class="bg-grad">
+<body id="page-manage" class="bg-grad">
+  <!-- Floating background -->
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar (same wiring as other pages) -->
+  <!-- Navbar (same structure as Overview) -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
@@ -45,75 +51,137 @@
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <a data-page="overview"  href="overview.html">Overview</a>
-        <a data-page="products"  href="products.html">Products</a>
-        <a data-page="investments" href="investments.html">Investments</a>
-        <a data-page="sales"      href="sales.html">Sales</a>
-        <a data-page="customers"  href="customers.html">Customers</a>
-        <a data-page="boost"      href="boost.html">Boost</a>
-        <a data-page="backup"     href="backup.html">Backup</a>
+        <!-- Absolute hrefs as fallback; data-route used for pretty URLs -->
+        <a href="/overview.html"    data-route="overview"   id="tabOverview">Overview</a>
+        <a href="/products.html"    data-route="products"   id="tabProducts">Products</a>
+        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
+        <a href="/sales.html"       data-route="sales"      id="tabSales">Sales</a>
+        <a href="/customers.html"   data-route="customers"  id="tabCustomers">Customers</a>
+        <a href="/boost.html"       data-route="boost"      id="tabBoost">Boost</a>
+        <a href="/backup.html"      data-route="backup"     id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
   </header>
 
+  <!-- Content -->
   <main class="container">
     <section class="section">
       <div class="page-head">
         <div>
-          <h2>Manage Types &amp; Sizes</h2>
-          <p class="sub">Create, rename, and remove product attributes.</p>
+          <h2>Manage Types / Sizes / Colors</h2>
+          <p class="sub">Keep your catalog attributes tidy and up to date.</p>
         </div>
-        <div class="toolbar">
-          <a data-page="products" href="products.html" class="btn">← Back to Products</a>
+        <div>
+          <a class="btn" href="/products.html" data-route="products" id="backToProducts">← Back to Products</a>
         </div>
       </div>
 
-      <div class="card">
-        <!-- Your existing attribute management UI goes here (unchanged) -->
-        <div style="padding:12px; color:var(--muted);">
-          Build out your attribute lists here. (This update focuses on routing/auth/navbar only.)
+      <div class="grid-attrs">
+        <!-- Types -->
+        <div class="card">
+          <h3>Types</h3>
+          <div class="table-wrap">
+            <table class="table" id="typeTable"><tbody></tbody></table>
+          </div>
+          <div class="flex-between mt">
+            <input id="newType" placeholder="New type"/>
+            <button class="btn primary" id="btnAddType">Add</button>
+          </div>
+        </div>
+
+        <!-- Sizes -->
+        <div class="card">
+          <h3>Sizes</h3>
+          <div class="table-wrap">
+            <table class="table" id="sizeTable"><tbody></tbody></table>
+          </div>
+          <div class="flex-between mt">
+            <input id="newSize" placeholder="New size"/>
+            <button class="btn primary" id="btnAddSize">Add</button>
+          </div>
+        </div>
+
+        <!-- Colors -->
+        <div class="card">
+          <h3>Colors</h3>
+          <div class="table-wrap">
+            <table class="table" id="colorTable"><tbody></tbody></table>
+          </div>
+          <div class="flex-between mt">
+            <input id="newColor" placeholder="New color"/>
+            <button class="btn primary" id="btnAddColor">Add</button>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
-  <script type="module">
-    import { currentUserId, prettyFor } from './app.js';
+  <!-- ES module so Firestore + per-user store works -->
+  <script type="module" src="app.js"></script>
 
-    // ---------- Auth gate & pretty URL ----------
+  <script>
+    // ---------- Auth gate + enforce pretty URL (/userId/attributes) ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
-      const uid = currentUserId();
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
       if(!authed || !uid){
         history.replaceState({}, '', '/login');
-        location.replace('index.html');
+        location.replace('/index.html');
         return;
       }
 
-      const want = prettyFor(uid, 'manage-attributes');
+      const want = `/${encodeURIComponent(uid)}/attributes`;
       if (location.pathname !== want) {
         history.replaceState({}, '', want);
       }
     })();
 
-    // ---------- Pretty-URL navigation wiring ----------
+    // ---------- Wire navbar tabs to pretty URLs ----------
     (function(){
-      const uid = currentUserId();
       const tabs = document.getElementById('mainTabs');
-      if (!tabs || !uid) return;
+      if (!tabs) return;
 
-      tabs.querySelectorAll('a[data-page]').forEach(a=>{
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
+      const routeToFile = {
+        overview:'overview',
+        products:'products',
+        investments:'investments',
+        sales:'sales',
+        customers:'customers',
+        boost:'boost',
+        backup:'backup'
+      };
+
+      tabs.querySelectorAll('a[data-route]').forEach(a=>{
         a.addEventListener('click', (e)=>{
+          const route = a.dataset.route;
+          const file  = routeToFile[route] || route;
+          if (!route || !file) return; // default
           e.preventDefault();
-          const page = a.getAttribute('data-page');
-          const file = a.getAttribute('href');
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${page}`);
-          location.href = file;
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+          location.assign(`/${file}.html`);
         });
       });
     })();
+
+    // ---------- Back to Products (pretty URL) ----------
+    (function(){
+      const link = document.getElementById('backToProducts');
+      if(!link) return;
+      link.addEventListener('click', (e)=>{
+        const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
+        e.preventDefault();
+        history.replaceState({}, '', `/${encodeURIComponent(uid)}/products`);
+        location.assign('/products.html');
+      });
+    })();
+
+    // ---------- Mobile nav toggle ----------
+    document.getElementById('navToggle')?.addEventListener('click', ()=>{
+      document.querySelector('.tabs-wrap')?.classList.toggle('open');
+    });
 
     // ---------- Logout ----------
     document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
@@ -123,10 +191,16 @@
       localStorage.removeItem('pw_authed');
       localStorage.removeItem('pw_userId');
       history.replaceState({}, '', '/login');
-      location.replace('index.html');
+      location.replace('/index.html');
     });
 
-    // (Attribute management logic stays as you have it)
+    // ---------- Initial render for attribute lists (IDs kept the same) ----------
+    window.addEventListener('DOMContentLoaded', ()=>{
+      // These are exposed by app.js (non-module globals)
+      window.renderTypes && window.renderTypes();
+      window.renderSizes && window.renderSizes();
+      window.renderColors && window.renderColors();
+    });
   </script>
 </body>
 </html>
