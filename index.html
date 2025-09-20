@@ -9,25 +9,31 @@
   <!-- Pretty URL + 404 fallback handling + root redirect -->
   <script>
     (function () {
-      const params = new URLSearchParams(location.search);
-      const p = params.get('p');
+      var params = new URLSearchParams(location.search);
+      var p = params.get('p');
 
+      // 404 fallback can land here with ?p=/some/pretty/path
       if (p && /^\/[^/]+\/overview$/.test(decodeURIComponent(p))) {
-        const pretty = decodeURIComponent(p);
+        var pretty = decodeURIComponent(p);
         history.replaceState({}, '', pretty);
-        location.replace('/overview.html');
+        location.replace('/overview.html'); // load the actual file
         return;
       }
 
-      const path = location.pathname;
+      // Decide what to do on root or /login
+      var path = location.pathname;
       if (path === '/' || path.endsWith('/index.html') || path.endsWith('/login.html') || (p && decodeURIComponent(p) === '/login')) {
-        const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
-        const authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
+        // If "remembered" (localStorage) OR active tab session, go to overview
+        var uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
+        var authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
+
         if (authed && uid) {
           history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
           location.replace('/overview.html');
           return;
         }
+
+        // Otherwise, keep pretty /login
         history.replaceState({}, '', '/login');
       }
     })();
@@ -35,66 +41,105 @@
 
   <style>
     :root{
-      /* tweak these two to micro-adjust placement */
-      --bunny-head-top: -76px;  /* head behind card: less negative = further back */
-      --bunny-paws-top: -22px;  /* paws sit half on/half off the top edge */
+      /* Positioning knobs */
+      --bunny-head-top: -118px;     /* lifts head so just a sliver of chin hides */
+      --bunny-paws-top: -14px;      /* where paws rest (half on/half off) */
+      --paws-gap: 86px;             /* distance between paws */
+      --peek-drop: 16px;            /* how much the right paw drops on peek */
+
+      /* Sizes */
+      --head: 120px;
+      --ear-w: 36px; --ear-h: 92px;
+      --paw: 34px;
+
+      /* Colors */
+      --white: #fff;
+      --bunny-pink: #f9a8d4;
+      --bunny-pink-deep: #f472b6;
+      --face: #111827;
     }
 
-    /* Page centering */
-    body{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
+    body { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
 
-    /* Shell so we can layer head behind card and paws above card */
-    .auth-shell{ position:relative; width:100%; max-width:520px; }
+    /* Card */
+    .auth-wrap{ width:100%; max-width:460px; padding:0; position:relative; }
+    .card-surface{ padding:20px; position:relative; z-index:3; } /* sits above head, below paws */
 
-    /* Login card */
-    .auth-wrap{
-      position:relative; z-index:3; width:100%;
-      padding:20px; padding-top:62px; /* more headroom under paws */
-    }
     .auth-header{ text-align:center; margin-bottom:8px; }
-    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
     .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
 
     .field{ display:grid; gap:6px; margin-bottom:12px; }
     .field .row{ display:flex; gap:8px; align-items:center; }
     .field .row input{ flex:1; }
     .actions{ display:grid; gap:10px; margin-top:12px; }
-
-    .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
-    a.btn,a.btn:visited{ text-decoration:none; }
-    .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
-    .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
     .err-banner{ display:none; margin:12px 0 0; padding:10px 12px; border-radius:12px; border:1px solid #ef4444; background:rgba(239,68,68,.1); color:#fecaca; font-size:14px; }
     .err-banner.show{ display:block; }
+    .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
+    .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
     .loading{ opacity:.7; pointer-events:none; }
-    #togglePw{ position:relative; z-index:6; }
+    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
+    a.btn, a.btn:visited { text-decoration: none; }
 
-    /* ---------------- Bunny layout ---------------- */
+    /* ---------- Bunny (head behind, paws above) ---------- */
+    .bunny-head,
+    .bunny-paws{ position:absolute; left:50%; transform:translateX(-50%); pointer-events:none; }
 
-    /* Head sits BEHIND the card (ears + a tiny chin peek). */
-    .bunny-head{
-      position:absolute; left:50%; top:var(--bunny-head-top); transform:translateX(-50%);
-      width:220px; height:200px; z-index:1; pointer-events:none;
-      transition: transform .25s ease;
+    /* Head behind card */
+    .bunny-head{ top:var(--bunny-head-top); width:var(--head); height:calc(var(--head) + 40px); z-index:1; }
+    .bunny-head .ear{ position:absolute; width:var(--ear-w); height:var(--ear-h); background:var(--white);
+      border:6px solid rgba(255,255,255,.75); border-bottom:none; border-radius:34px 34px 0 0; left:50%;
+      transform:translateX(-50%); top:0; box-shadow:0 8px 20px rgba(0,0,0,.1);
     }
-    .bunny-head.focused{ transform:translateX(-50%) translateY(-1px); }
+    .bunny-head .ear::after{ content:""; position:absolute; inset:12px 8px auto 8px; height:calc(100% - 28px); border-radius:28px 28px 0 0; background:var(--bunny-pink); }
+    .bunny-head .ear.left { transform:translateX(calc(-50% - 26px)) rotate(-6deg); }
+    .bunny-head .ear.right{ transform:translateX(calc(-50% + 26px)) rotate(6deg); }
 
-    /* Paws sit ON the card edge (in front), half on/half off. */
-    .bunny-paws{
-      position:absolute; left:50%; top:var(--bunny-paws-top); transform:translateX(-50%);
-      width:220px; height:88px; z-index:5; pointer-events:none;
-      filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
+    .bunny-head .face{ position:absolute; left:50%; top:44px; transform:translateX(-50%); width:var(--head); height:var(--head);
+      background:var(--white); border-radius:50%; box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+    .bunny-head .eye{ position:absolute; top:78px; width:12px; height:12px; background:#111; border-radius:50%; }
+    .bunny-head .eye.left{ left:calc(50% - 24px); }
+    .bunny-head .eye.right{ left:calc(50% + 12px); }
+    .bunny-head .nose{ position:absolute; left:50%; top:94px; transform:translateX(-50%); width:12px; height:10px; background:var(--bunny-pink-deep); border-radius:50% 50% 60% 60%; }
+    .bunny-head .mouth{
+      position:absolute; left:50%; top:106px; transform:translateX(-50%);
+      width:28px; height:18px; border-bottom:4px solid #e5e7eb; border-radius:0 0 28px 28px;
     }
 
-    /* Soft, very subtle shadow touching the ledge */
-    .ledge-shadow{
-      position:absolute; left:24px; right:24px; top:-2px; height:14px; z-index:4; pointer-events:none;
-      background: radial-gradient(ellipse at center, rgba(0,0,0,.22), rgba(0,0,0,0) 70%);
-      filter: blur(6px); opacity:.35;
+    /* Paws above card */
+    .bunny-paws{ top:var(--bunny-paws-top); width:220px; height:80px; z-index:6; }
+    .paw{
+      position:absolute; top:0; width:var(--paw); height:var(--paw); background:var(--white);
+      border-radius:50%; box-shadow:0 6px 16px rgba(0,0,0,.18);
+      display:grid; place-items:center;
+    }
+    .paw::before{ content:""; width:18px; height:12px; background:var(--bunny-pink); border-radius:16px; }
+    .paw.left{ left:calc(50% - var(--paws-gap)); transform:translate(-50%, 0); }
+    .paw.right{ left:calc(50% + var(--paws-gap)); transform:translate(-50%, 0); }
+
+    /* Pop from behind on load */
+    .bunny-head, .bunny-paws{ opacity:0; animation:popUp .7s ease-out .12s forwards; }
+    @keyframes popUp{
+      0%{ opacity:0; transform:translate(-50%, 16px) scale(.96); }
+      60%{ opacity:1; transform:translate(-50%, -2px) scale(1.02); }
+      100%{ opacity:1; transform:translate(-50%, 0) scale(1); }
     }
 
-    /* Make sure any default circle backdrop in SVG doesn’t show */
-    svg > circle:first-of-type{ fill:transparent!important; }
+    /* Cover eyes when password focused */
+    .auth-wrap.cover .paw.left  { transform:translate(-50%, -64px) rotate(-12deg); }
+    .auth-wrap.cover .paw.right { transform:translate(-50%, -64px) rotate(12deg); }
+
+    /* Sneak peek: lower right paw a bit */
+    .auth-wrap.cover.peek .paw.right{ transform:translate(-50%, calc(-64px + var(--peek-drop))) rotate(8deg); }
+
+    /* (Optional tiny ear wiggle on peek) */
+    .auth-wrap.cover.peek .ear.left { animation:earWiggle .5s ease-out; }
+    .auth-wrap.cover.peek .ear.right{ animation:earWiggle .5s ease-out reverse; }
+    @keyframes earWiggle{ 0%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);} 50%{transform:translateX(calc(-50% - 26px)) rotate(-2deg);} 100%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);} }
+
+    /* keep eye button clickable above everything */
+    #togglePw { position:relative; z-index:7; }
   </style>
 </head>
 
@@ -104,82 +149,30 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <div class="auth-shell">
-    <!-- Bunny head (behind card, chin barely peeking) -->
-    <svg class="bunny-head" viewBox="0 0 220 200" aria-hidden="true">
-      <!-- Ears -->
-      <g>
-        <ellipse cx="70" cy="50" rx="18" ry="52" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
-        <ellipse cx="70" cy="50" rx="10" ry="40" fill="#f59ab2"/>
-        <ellipse cx="150" cy="50" rx="18" ry="52" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
-        <ellipse cx="150" cy="50" rx="10" ry="40" fill="#f59ab2"/>
-      </g>
+  <main class="card auth-wrap" style="z-index:1">
+    <!-- Bunny pieces (head behind, paws above) -->
+    <div class="bunny-head" aria-hidden="true">
+      <div class="ear left"></div>
+      <div class="ear right"></div>
+      <div class="face">
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+        <div class="nose"></div>
+        <div class="mouth"></div>
+      </div>
+    </div>
+    <div class="bunny-paws" aria-hidden="true">
+      <div class="paw left"></div>
+      <div class="paw right"></div>
+    </div>
 
-      <!-- Head -->
-      <g id="bHead" transform="translate(0,24)">
-        <circle cx="110" cy="104" r="50" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
-
-        <!-- Eyes -->
-        <g class="eyeL">
-          <circle cx="88" cy="100" r="7.2" fill="#2a2a2a"/>
-          <circle cx="86.8" cy="98.8" r="1.8" fill="#fff"/>
-        </g>
-        <g class="eyeR">
-          <circle cx="132" cy="100" r="7.2" fill="#2a2a2a"/>
-          <circle cx="130.8" cy="98.8" r="1.8" fill="#fff"/>
-        </g>
-
-        <!-- Nose -->
-        <path class="nose" d="M110 114c4.1 0 6.6-2.8 4.6-4.7l-3.4-3.4c-1.2-1.2-3.1-1.2-4.3 0l-3.5 3.5c-2 1.9 .5 4.6 4.6 4.6z" fill="#ff8ea1"/>
-
-        <!-- Mouth (3 states) -->
-        <defs>
-          <path id="mSmall" d="M110 121c-7.5 0-14.2-2.3-19.8-6.1a3 3 0 0 1 3.3-5c4.7 3.1 10.4 4.9 16.5 4.9s11.7-1.8 16.5-4.9a3 3 0 0 1 3.3 5c-5.6 3.8-12.3 6.1-19.8 6.1z"/>
-          <path id="mMed" d="M98 125c-5.5 0-10-4.5-10-10v-2.2c0-1.2 1-2.2 2.2-2.2h39.6c1.2 0 2.2 1 2.2 2.2v2.2c0 5.5-4.5 10-10 10H98z"/>
-          <path id="mLg" d="M110 132c-10.8 0-19.6-8.8-19.6-19.6 0-2.5 2-4.6 4.6-4.6h30c2.5 0 4.6 2 4.6 4.6 0 10.8-8.8 19.6-19.6 19.6z"/>
-        </defs>
-
-        <g class="mouth">
-          <path class="mouthBG" fill="#617E92" d="M110 121c-7.5 0-14.2-2.3-19.8-6.1a3 3 0 0 1 3.3-5c4.7 3.1 10.4 4.9 16.5 4.9s11.7-1.8 16.5-4.9a3 3 0 0 1 3.3 5c-5.6 3.8-12.3 6.1-19.8 6.1z"/>
-          <clipPath id="mouthClip"><use href="#mLg"/></clipPath>
-          <g clip-path="url(#mouthClip)">
-            <circle class="tongue" cx="110" cy="126" r="9" fill="#cc4a6c"/>
-            <ellipse cx="110" cy="118.5" rx="3.2" ry="1.6" fill="#fff" opacity=".12"/>
-          </g>
-          <path class="tooth" d="M116 116h-5.6c-1.2 0-2.3-1-2.3-2.3v-2.1h10.2v2.1c0 1.3-1 2.3-2.3 2.3z" fill="#fff"/>
-        </g>
-      </g>
-    </svg>
-
-    <!-- Paws (in front of card, half on/half off) -->
-    <svg class="bunny-paws" viewBox="0 0 220 88" aria-hidden="true">
-      <!-- left paw -->
-      <g class="pawL">
-        <ellipse cx="76" cy="44" rx="30" ry="20" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
-        <g class="twoFingersL">
-          <ellipse cx="66" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
-          <ellipse cx="86" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
-        </g>
-      </g>
-      <!-- right paw -->
-      <g class="pawR">
-        <ellipse cx="144" cy="44" rx="30" ry="20" fill="#fff" stroke="#eaeaea" stroke-width="2"/>
-        <g class="twoFingersR">
-          <ellipse cx="134" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
-          <ellipse cx="154" cy="42" rx="7.2" ry="5.2" fill="#ffd6de"/>
-        </g>
-      </g>
-    </svg>
-
-    <div class="ledge-shadow" aria-hidden="true"></div>
-
-    <!-- Login Card -->
-    <main class="card auth-wrap">
+    <div class="card-surface">
       <div class="auth-header">
         <h1 class="brand">Pack &amp; Wrap</h1>
         <p class="auth-sub">Welcome back — manage your Sales • Inventory • Profit</p>
       </div>
 
+      <!-- Login form -->
       <form id="loginForm" class="form vgap" autocomplete="off" novalidate>
         <div class="field">
           <label for="u">User ID</label>
@@ -209,36 +202,47 @@
 
         <p id="loginErr" class="err-banner" role="alert" aria-live="assertive"></p>
       </form>
-    </main>
-  </div>
+    </div>
+  </main>
 
-  <!-- GSAP -->
+  <!-- GSAP (optional; not required for bunny) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.20.3/TweenMax.min.js"></script>
 
-  <!-- Show/Hide password button + bunny sneak-peek -->
+  <!-- Eye button toggle + bunny reactions -->
   <script>
     (function(){
-      const pw = document.getElementById('p');
-      const toggle = document.getElementById('togglePw');
-      if (!toggle || !pw) return;
+      var pw = document.getElementById('p');
+      var toggle = document.getElementById('togglePw');
+      var wrap = document.querySelector('.auth-wrap');
 
-      toggle.addEventListener('click', function(ev){
-        ev.preventDefault();
-        const wasPassword = pw.type === 'password';
-        pw.type = wasPassword ? 'text' : 'password';
-        toggle.textContent = wasPassword ? '🙈' : '👁';
-        toggle.setAttribute('aria-label', wasPassword ? 'Hide password' : 'Show password');
-        pw.focus();
+      function setCover(on){ wrap.classList.toggle('cover', !!on); }
+      function setPeek(on){ wrap.classList.toggle('peek', !!on); }
 
-        if (window.bunny) {
-          if (wasPassword) window.bunny.sneakPeek();  // revealing → peek
-          else window.bunny.coverEyes();              // hiding → cover again
-        }
-      });
+      if (pw) {
+        pw.addEventListener('focus', function(){ setCover(true); if (pw.type === 'text') setPeek(true); });
+        pw.addEventListener('blur',  function(){
+          // keep peek only if still showing password
+          setCover(false); setPeek(pw.type === 'text');
+        });
+      }
+
+      if (toggle && pw) {
+        toggle.addEventListener('click', function(ev){
+          ev.preventDefault();
+          var isPw = pw.type === 'password';
+          pw.type = isPw ? 'text' : 'password';
+          toggle.textContent = isPw ? '🙈' : '👁';
+          toggle.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+
+          // If showing, ensure cover+peek; if hiding, remove peek (and cover only while input focused)
+          if (pw.type === 'text'){ setCover(true); setPeek(true); pw.focus(); }
+          else { setPeek(false); pw.focus(); }
+        });
+      }
     })();
   </script>
 
-  <!-- Login logic (unchanged) -->
+  <!-- Login logic — robust dynamic import + NO optimistic fallback -->
   <script type="module">
     const form = document.getElementById('loginForm');
     const err  = document.getElementById('loginErr');
@@ -252,18 +256,22 @@
     function showError(msg){ err.textContent = msg; err.classList.add('show'); }
     function clearError(){ err.textContent = ''; err.classList.remove('show'); }
 
+    // Try to import app.js and get login function
     let loginUserById = null;
     try {
       const mod = await import('./app.js');
       loginUserById = mod.loginUserById || (mod.default && mod.default.loginUserById) || null;
-    } catch (e) { console.error('Failed to import app.js', e); }
+    } catch (e) {
+      console.error('Failed to import app.js', e);
+    }
 
+    // If already logged in (session or remembered), go straight to overview
     (function(){
       const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
       const authed = (localStorage.getItem('pw_authed') === '1') || (sessionStorage.getItem('pw_authed') === '1');
       if (authed && uid) {
         history.replaceState({}, '', `/${encodeURIComponent(uid)}/overview`);
-        location.replace('/overview.html');
+        location.replace('/overview.html'); // absolute
       }
     })();
 
@@ -273,7 +281,10 @@
 
       const userId = (user.value || '').trim();
       const pval   = pw.value || '';
-      if(!userId || !pval){ showError('Please enter both User ID and password.'); return; }
+      if(!userId || !pval){
+        showError('Please enter both User ID and password.');
+        return;
+      }
 
       if (typeof loginUserById !== 'function') {
         showError('Login temporarily unavailable (app failed to load). Please refresh the page.');
@@ -284,8 +295,11 @@
       try{
         const res = await loginUserById(userId, pval);
         if(res && res.ok){
+          // always set session for this tab
           sessionStorage.setItem('pw_authed','1');
           sessionStorage.setItem('pw_userId', res.userId);
+
+          // persist across tabs only if "Remember me" is checked
           if(remember.checked){
             localStorage.setItem('pw_authed','1');
             localStorage.setItem('pw_userId', res.userId);
@@ -293,6 +307,7 @@
             localStorage.removeItem('pw_authed');
             localStorage.removeItem('pw_userId');
           }
+
           history.replaceState({}, '', `/${encodeURIComponent(res.userId)}/overview`);
           location.replace('/overview.html');
         } else {
@@ -305,164 +320,6 @@
         form.classList.remove('loading'); btn.textContent = 'Login';
       }
     });
-  </script>
-
-  <!-- Bunny animation logic -->
-  <script>
-    (function(){
-      if (typeof TweenMax === 'undefined') return;
-
-      const headBox  = document.querySelector('.bunny-head');
-      const pawsBox  = document.querySelector('.bunny-paws');
-
-      const eyeL     = headBox.querySelector('.eyeL');
-      const eyeR     = headBox.querySelector('.eyeR');
-      const nose     = headBox.querySelector('.nose');
-      const mouth    = headBox.querySelector('.mouth');
-      const mouthBG  = headBox.querySelector('.mouthBG');
-      const mSmall   = headBox.querySelector('#mSmall');
-      const mMed     = headBox.querySelector('#mMed');
-      const mLg      = headBox.querySelector('#mLg');
-
-      const pawL     = pawsBox.querySelector('.pawL');
-      const pawR     = pawsBox.querySelector('.pawR');
-      const twoL     = pawsBox.querySelector('.twoFingersL');
-      const twoR     = pawsBox.querySelector('.twoFingersR');
-
-      const userInput= document.getElementById('u');
-      const password = document.getElementById('p');
-      const toggle   = document.getElementById('togglePw');
-
-      if (!headBox || !pawsBox || !userInput) return;
-
-      /* ---------- helpers ---------- */
-      function setMouth(p){ if (p) mouthBG.setAttribute('d', p.getAttribute('d')); }
-      function pagePos(el){ const r=el.getBoundingClientRect(); return {x:r.left+scrollX,y:r.top+scrollY,w:r.width,h:r.height}; }
-      function angle(x1,y1,x2,y2){ return Math.atan2(y1-y2,x1-x2); }
-
-      function trackEyes(){
-        const carPos = userInput.selectionEnd ?? userInput.value.length;
-        const mirror = document.createElement('div');
-        const span   = document.createElement('span');
-        const s = getComputedStyle(userInput);
-        [].forEach.call(s, (prop)=>mirror.style[prop]=s[prop]);
-        mirror.style.position='absolute'; mirror.style.visibility='hidden'; mirror.style.whiteSpace='pre';
-        document.body.appendChild(mirror);
-        mirror.textContent = userInput.value.substr(0, carPos);
-        span.textContent = userInput.value.substr(carPos) || '.';
-        mirror.appendChild(span);
-
-        const caret = pagePos(span);
-        const hb    = pagePos(headBox);
-
-        const eyeLA = {x: hb.x + hb.w*(88/220), y: hb.y + 24 + hb.h*(100/200)};
-        const eyeRA = {x: hb.x + hb.w*(132/220),y: hb.y + 24 + hb.h*(100/200)};
-        const noseA = {x: hb.x + hb.w*(110/220),y: hb.y + 24 + hb.h*(114/200)};
-        const mouthA= {x: hb.x + hb.w*(110/220),y: hb.y + 24 + hb.h*(121/200)};
-
-        const eLa = angle(eyeLA.x, eyeLA.y, caret.x, caret.y+25);
-        const eRa = angle(eyeRA.x, eyeRA.y, caret.x, caret.y+25);
-        const nA  = angle(noseA.x, noseA.y, caret.x, caret.y+25);
-        const mA  = angle(mouthA.x,mouthA.y, caret.x, caret.y+25);
-
-        const eLX = Math.cos(eLa)*7, eLY = Math.sin(eLa)*5;
-        const eRX = Math.cos(eRa)*7, eRY = Math.sin(eRa)*5;
-        const nX  = Math.cos(nA)*5,  nY  = Math.sin(nA)*3;
-        const mX  = Math.cos(mA)*5,  mY  = Math.sin(mA)*3;
-        const mR  = Math.cos(mA)*2;
-
-        TweenMax.to(eyeL,.55,{x:-eLX,y:-eLY,ease:Expo.easeOut});
-        TweenMax.to(eyeR,.55,{x:-eRX,y:-eRY,ease:Expo.easeOut});
-        TweenMax.to(nose,.55,{x:-nX,y:-nY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
-        TweenMax.to(mouth,.55,{x:-mX,y:-mY,rotation:mR,transformOrigin:'center',ease:Expo.easeOut});
-
-        document.body.removeChild(mirror);
-      }
-
-      function onNameInput(){
-        trackEyes();
-        const len = userInput.value.length;
-        if (len === 0) setMouth(mSmall);
-        else if (len < 6) setMouth(mMed);
-        else setMouth(mLg);
-      }
-
-      /* ---------- paws choreography (calibrated to the eyes) ---------- */
-      let covered = false;
-
-      // Rest: paws gripping the ledge, half on/half off the card.
-      function pawsRest(){
-        TweenMax.to(pawL,.6,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut});
-        TweenMax.to(pawR,.6,{x:0,y:0,rotation:0,transformOrigin:'center',ease:Quad.easeOut,delay:.05});
-      }
-
-      // Full cover: both paws up to eye level (fine-tuned for this layout).
-      function coverEyes(){
-        covered = true;
-        // from rest (y≈0 in pawsBox), move up ~86px and slightly inward
-        TweenMax.to(pawL,.42,{x:-24,y:-86,rotation:-12,ease:Quad.easeOut});
-        TweenMax.to(pawR,.42,{x: 24,y:-86,rotation: 12,ease:Quad.easeOut,delay:.05});
-        TweenMax.to([twoL,twoR],.22,{y:-1,repeat:1,yoyo:true,ease:Power1.easeInOut});
-      }
-
-      // Peek: left still covering, right drops to reveal one eye.
-      function sneakPeek(){
-        covered = true;
-        TweenMax.to(pawL,.34,{x:-24,y:-86,rotation:-12,ease:Quad.easeOut});
-        TweenMax.to(pawR,.30,{x: 10,y:-58,rotation: 6, ease:Quad.easeOut});
-        TweenMax.to(twoR,.16,{y:-2,repeat:1,yoyo:true});
-      }
-
-      function uncoverEyes(){
-        covered = false;
-        pawsRest();
-      }
-
-      // Blink loop
-      function blink(delay){
-        delay = delay ? Math.floor(Math.random()*delay) : 1;
-        TweenMax.to([eyeL, eyeR], .08, {delay:delay, scaleY:.1, yoyo:true, repeat:1, transformOrigin:'center',
-          onComplete:function(){ blink(10); }});
-      }
-
-      // Pop in on load
-      (function init(){
-        // head rises from behind the card; paws slide on to grab the ledge
-        TweenMax.fromTo(headBox,.85,{y:36,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4)});
-        TweenMax.fromTo(pawsBox,.85,{y:32,opacity:0},{y:0,opacity:1,ease:Back.easeOut.config(1.4),delay:.04});
-
-        // Inputs
-        userInput.addEventListener('focus', ()=>{ headBox.classList.add('focused'); onNameInput(); });
-        userInput.addEventListener('input', onNameInput);
-        userInput.addEventListener('blur',  ()=>{ headBox.classList.remove('focused'); setTimeout(()=>TweenMax.to([eyeL,eyeR,nose,mouth],.5,{x:0,y:0,rotation:0,ease:Expo.easeOut}),120); });
-
-        password.addEventListener('focus', ()=>{
-          coverEyes();
-          if (password.type === 'text') sneakPeek();
-        });
-        password.addEventListener('blur',  ()=>{
-          setTimeout(()=>{
-            const a = document.activeElement;
-            if (a !== password && a !== toggle) uncoverEyes();
-          },100);
-        });
-        toggle.addEventListener('focus', ()=>{ coverEyes(); if (password.type === 'text') sneakPeek(); });
-        toggle.addEventListener('blur',  ()=>{
-          setTimeout(()=>{
-            const a = document.activeElement;
-            if (a !== password && a !== toggle) uncoverEyes();
-          },100);
-        });
-
-        // Base pose
-        setMouth(mSmall);
-        pawsRest();
-        blink(5);
-
-        // Expose for the toggle handler
-        window.bunny = { coverEyes, uncoverEyes, sneakPeek };
-      })();
-    })();
   </script>
 </body>
 </html>
