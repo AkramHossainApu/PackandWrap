@@ -41,33 +41,37 @@
 
   <style>
     :root{
-      /* ---- Quick tuning knobs ---- */
-      --bunny-head-top: -112px;   /* head sits behind the card (more negative = higher / less chin) */
-      --bunny-paws-top: -14px;    /* paws rest on top edge (half on/half off) */
-      --cover-to-eyes: 76px;      /* how far paws travel DOWN to cover eyes from rest */
-      --peek-drop: 18px;          /* extra drop for the right paw when peeking */
+      /* ---- Placement knobs (tweak here if you want) ---- */
+      --bunny-head-top: -128px;   /* head is behind the card, most of it showing */
+      --bunny-paws-top: -20px;    /* paws rest half on the top edge */
+      --peek-drop: 18px;          /* extra drop to reveal one eye on "show password" */
+      --paws-gap: 86px;           /* distance from center to each paw */
 
-      --paws-gap: 86px;           /* horizontal gap from center to each paw */
-
-      /* Sizes / colors */
+      /* Bunny sizes & colors */
       --head: 120px;
       --ear-w: 36px; --ear-h: 92px;
-      --paw: 34px;
-      --white: #fff;
-      --ink: #111;
-      --pink: #f9a8d4;
-      --pink-deep: #f472b6;
+      --paw: 36px;
+      --white: #fff; --ink: #111; --pink: #f9a8d4; --pink-deep:#f472b6;
       --shadow: rgba(0,0,0,.18);
     }
 
-    body { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
+    /* This computes the eye Y coordinate relative to the card top.
+       (Face top is ~44px below head top; eyes ~78px below face top) */
+    .auth-wrap{
+      --eye-y: calc(var(--bunny-head-top) + 122px);
+    }
 
-    /* Card shell */
+    /* Page/card polish */
+    body { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; position:relative; }
     .auth-wrap{ width:100%; max-width:460px; padding:0; position:relative; }
-    .card-surface{ padding:20px; position:relative; z-index:3; } /* ABOVE head, BELOW paws */
+    .card-surface{ padding:28px 20px 20px; position:relative; z-index:3; } /* extra top padding so title never clashes */
 
     .auth-header{ text-align:center; margin-bottom:8px; }
     .auth-sub{ color:var(--muted); font-size:14px; margin:0 0 14px; text-align:center; }
+    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
 
     .field{ display:grid; gap:6px; margin-bottom:12px; }
     .field .row{ display:flex; gap:8px; align-items:center; }
@@ -78,16 +82,16 @@
     .divider{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:8px 0; }
     .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--border); }
     .loading{ opacity:.7; pointer-events:none; }
-    .brand{ font-size:26px; font-weight:900; letter-spacing:.5px; text-align:center; background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4); -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25); }
     .btn.alt{ border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); box-shadow:0 6px 18px rgba(196,181,253,.18); }
     a.btn, a.btn:visited { text-decoration: none; }
-    #togglePw { position:relative; z-index:7; } /* stay clickable over paws */
+    #togglePw { position:relative; z-index:7; } /* keep clickable over paws */
 
     /* ---------- Bunny group (head behind, paws above) ---------- */
     .bunny{ position:absolute; left:50%; transform:translateX(-50%); pointer-events:none; }
 
-    /* Head (behind the card) */
-    .bunny .head{ top:var(--bunny-head-top); width:var(--head); height:calc(var(--head) + 40px); z-index:1; position:absolute; left:50%; transform:translateX(-50%); }
+    /* HEAD (behind the card) */
+    .bunny .head{ top:var(--bunny-head-top); width:var(--head); height:calc(var(--head) + 40px);
+      z-index:1; position:absolute; left:50%; transform:translateX(-50%); }
     .head .ear{ position:absolute; width:var(--ear-w); height:var(--ear-h); background:var(--white);
       border:6px solid rgba(255,255,255,.75); border-bottom:none; border-radius:34px 34px 0 0; left:50%; top:0;
       box-shadow:0 8px 20px rgba(0,0,0,.1);
@@ -98,22 +102,25 @@
 
     .head .face{ position:absolute; left:50%; top:44px; transform:translateX(-50%); width:var(--head); height:var(--head);
       background:var(--white); border-radius:50%; box-shadow:0 10px 24px var(--shadow); }
-    .face .eye{ position:absolute; top:78px; width:12px; height:12px; background:var(--ink); border-radius:50%; transition:transform .12s ease; }
+    .face .eye{ position:absolute; top:78px; width:12px; height:12px; background:var(--ink); border-radius:50%;
+      transition:transform .12s ease; }
     .face .eye.left{ left:calc(50% - 24px); }
     .face .eye.right{ left:calc(50% + 12px); }
-    .face .nose{ position:absolute; left:50%; top:95px; transform:translateX(-50%); width:12px; height:10px; background:var(--pink-deep); border-radius:50% 50% 60% 60%; }
+    .face .nose{ position:absolute; left:50%; top:95px; transform:translateX(-50%); width:12px; height:10px; background:var(--pink-deep);
+      border-radius:50% 50% 60% 60%; }
     .face .mouth{
       position:absolute; left:50%; top:108px; transform:translateX(-50%);
       width:26px; height:16px; border-bottom:4px solid #e5e7eb; border-radius:0 0 26px 26px; transition: all .18s ease;
     }
-    .mouth.smile  { width:32px; height:18px; border-bottom-width:5px; }
-    .mouth.big    { width:40px; height:22px; border-bottom-width:6px; }
+    .mouth.smile{ width:32px; height:18px; border-bottom-width:5px; }
+    .mouth.big  { width:40px; height:22px; border-bottom-width:6px; }
 
-    /* Paws (above the card) */
+    /* PAWS (above the card) */
     .bunny .paws{ top:var(--bunny-paws-top); width:220px; height:84px; z-index:6; position:absolute; left:50%; transform:translateX(-50%); }
     .paw{
       position:absolute; top:0; width:var(--paw); height:var(--paw); background:var(--white);
-      border-radius:50%; box-shadow:0 6px 16px var(--shadow); display:grid; place-items:center; transition:transform .22s cubic-bezier(.2,.7,.2,1);
+      border-radius:50%; box-shadow:0 6px 16px var(--shadow); display:grid; place-items:center;
+      transition:transform .22s cubic-bezier(.2,.7,.2,1);
     }
     .paw::before{ content:""; width:18px; height:12px; background:var(--pink); border-radius:16px; }
     .paw.left{ left:calc(50% - var(--paws-gap)); transform:translate(-50%, 0); }
@@ -127,17 +134,28 @@
       100%{ opacity:1; transform:translate(-50%, 0) scale(1); }
     }
 
-    /* Cover eyes: paws travel DOWN from the edge to eye level */
-    .auth-wrap.cover .paw.left  { transform:translate(-50%, var(--cover-to-eyes)) rotate(-10deg); }
-    .auth-wrap.cover .paw.right { transform:translate(-50%, var(--cover-to-eyes)) rotate(10deg); }
+    /* Cover eyes: compute exact drop to the eyes from the edge */
+    .auth-wrap.cover .paw.left,
+    .auth-wrap.cover .paw.right{
+      transform:translate(-50%, calc(var(--eye-y) - var(--bunny-paws-top)));
+    }
+    /* Sneak peek (show password): right paw drops slightly more */
+    .auth-wrap.cover.peek .paw.right{
+      transform:translate(-50%, calc(var(--eye-y) - var(--bunny-paws-top) + var(--peek-drop)));
+    }
 
-    /* Sneak peek: right paw drops slightly to reveal one eye */
-    .auth-wrap.cover.peek .paw.right{ transform:translate(-50%, calc(var(--cover-to-eyes) + var(--peek-drop))) rotate(6deg); }
-
-    /* Cute micro ear wiggle on peek */
+    /* Small wiggle for fun when peeking */
     .auth-wrap.cover.peek .head .ear.left { animation:earWiggle .5s ease-out; }
     .auth-wrap.cover.peek .head .ear.right{ animation:earWiggle .5s ease-out reverse; }
-    @keyframes earWiggle{ 0%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);} 50%{transform:translateX(calc(-50% - 26px)) rotate(-2deg);} 100%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);} }
+    @keyframes earWiggle{
+      0%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);}
+      50%{transform:translateX(calc(-50% - 26px)) rotate(-2deg);}
+      100%{transform:translateX(calc(-50% - 26px)) rotate(-6deg);}
+    }
+
+    @media (max-width:520px){
+      :root{ --paws-gap: 74px; }
+    }
   </style>
 </head>
 
@@ -148,7 +166,7 @@
   </div>
 
   <main class="card auth-wrap" style="z-index:1">
-    <!-- Bunny (one group so paws line up perfectly with the face) -->
+    <!-- Bunny (single group so paws align perfectly with the face) -->
     <div class="bunny" aria-hidden="true">
       <div class="head">
         <div class="ear left"></div>
@@ -206,7 +224,7 @@
     </div>
   </main>
 
-  <!-- Bunny logic (no GSAP needed) -->
+  <!-- Bunny interactions (no external libs needed) -->
   <script>
     (function(){
       const wrap   = document.querySelector('.auth-wrap');
@@ -217,25 +235,19 @@
       const mouth  = document.getElementById('mouth');
       const toggle = document.getElementById('togglePw');
 
-      /* ---- Eye tracking on user id ---- */
+      /* Eye tracking on user id */
       function trackEyes(){
         if (!uidEl) return;
         const val = uidEl.value || '';
         const caret = uidEl.selectionEnd ?? val.length;
 
-        // Get input box width (usable) for a proportion
-        const rect = uidEl.getBoundingClientRect();
-        const style = getComputedStyle(uidEl);
-        const pad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-        const usable = Math.max(1, rect.width - pad);
+        // proportional caret position (works for variable length)
+        const proportion = val.length ? Math.min(1, Math.max(0, caret / val.length)) : 0.08;
 
-        // Rough caret x within the input (proportional by character count)
-        const proportion = val.length ? Math.min(1, Math.max(0, caret / val.length)) : 0.1;
-        // Translate eyes within a small radius
-        const maxX = 8;           // px
-        const maxY = 3;           // px slight bob
+        const maxX = 8;   // px left/right
+        const maxY = 3;   // subtle bob
         const tx = (proportion - 0.5) * 2 * maxX;
-        const ty = Math.sin((Date.now()/600)) * maxY; // tiny float
+        const ty = Math.sin((Date.now()/600)) * maxY;
 
         eyeL.style.transform = `translate(${tx}px, ${ty}px)`;
         eyeR.style.transform = `translate(${tx}px, ${ty}px)`;
@@ -249,21 +261,20 @@
       uidEl && uidEl.addEventListener('keyup', trackEyes);
       uidEl && uidEl.addEventListener('click', trackEyes);
       uidEl && uidEl.addEventListener('focus', trackEyes);
-      // run once
       setTimeout(trackEyes, 0);
 
-      /* ---- Paws behavior ---- */
+      /* Paws behavior */
       function setCover(on){ wrap.classList.toggle('cover', !!on); }
       function setPeek(on){ wrap.classList.toggle('peek', !!on); }
 
       if (pwEl) {
         pwEl.addEventListener('focus', function(){
           setCover(true);
-          if (pwEl.type === 'text') setPeek(true); // if already showing
+          if (pwEl.type === 'text') setPeek(true);    // already showing
         });
         pwEl.addEventListener('blur', function(){
           setCover(false);
-          setPeek(pwEl.type === 'text'); // keep peek only if showing
+          setPeek(pwEl.type === 'text');              // keep peek only if showing
         });
       }
 
