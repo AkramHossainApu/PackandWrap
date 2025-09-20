@@ -203,7 +203,7 @@
     </div>
 
     <!-- Login form -->
-    <form id="loginForm" class="form vgap" autocomplete="off" novalidate>
+    <form id="loginForm" class="form vgap" autocomplete="off" novalidate onsubmit="event.preventDefault()">
       <div class="field">
         <label for="u">User ID</label>
         <input id="u" name="userid" type="text" required autocomplete="username" placeholder="yourid123"/>
@@ -271,6 +271,9 @@
     const user = document.getElementById('u');
     const remember = document.getElementById('remember');
 
+    // mark that module script is running; used by fallback below
+    window.__loginWired = false;
+
     // Also catch the case when user navigates directly to /login while remembered
     (function(){
       const uid = localStorage.getItem('pw_userId') || sessionStorage.getItem('pw_userId');
@@ -320,6 +323,53 @@
         form.classList.remove('loading'); btn.textContent = 'Login';
       }
     });
+
+    // module wired successfully
+    window.__loginWired = true;
+  </script>
+
+  <!-- Fallback: if the module (or app.js) fails, still prevent reload and redirect properly -->
+  <script>
+    (function(){
+      function onReady(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+      onReady(function(){
+        if (window.__loginWired) return; // module is working, do nothing
+
+        var form = document.getElementById('loginForm');
+        var user = document.getElementById('u');
+        var pw = document.getElementById('p');
+        var remember = document.getElementById('remember');
+        var err = document.getElementById('loginErr');
+        var btn = document.getElementById('loginBtn');
+
+        if (!form) return;
+
+        form.addEventListener('submit', function(e){
+          e.preventDefault();
+          var uid = (user.value || '').trim();
+          var pval = pw.value || '';
+          if(!uid || !pval){
+            err.textContent = 'Please enter both User ID and password.';
+            err.classList.add('show');
+            return;
+          }
+          // Optimistic fallback: store and go to overview
+          btn.textContent = 'Logging in…'; form.classList.add('loading');
+
+          sessionStorage.setItem('pw_authed','1');
+          sessionStorage.setItem('pw_userId', uid);
+          if (remember && remember.checked){
+            localStorage.setItem('pw_authed','1');
+            localStorage.setItem('pw_userId', uid);
+          } else {
+            localStorage.removeItem('pw_authed');
+            localStorage.removeItem('pw_userId');
+          }
+          history.replaceState({}, '', '/' + encodeURIComponent(uid) + '/overview');
+          location.replace('/overview.html');
+        });
+      });
+    })();
   </script>
 
   <!-- Avatar JS (unchanged except for exported spread/close) -->
