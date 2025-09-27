@@ -3,7 +3,7 @@
 // Only /users/{userId} at the top level
 // Signup: creates /users/{userId}
 // Login:  reads /users/{userId} (by ID)
-// + Parcels helpers (parse + steadfast url)
+// + Robust order-message parser & helpers
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -48,6 +48,27 @@ export async function sha(input){
   return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
 
+// --- New: Bangla digits → English
+export function bnToEnDigits(s=""){
+  const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+  return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
+}
+
+// --- New: Phone normalizer (BD)
+export function normalizeBdPhone(raw=""){
+  const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
+  // keep only last 11 digits if possible
+  let digits = t.replace(/\D/g,'');
+  // common cases: 8801XXXXXXXXX / 01XXXXXXXXX / +8801XXXXXXXXX
+  if (digits.startsWith('8801') && digits.length >= 13) digits = digits.slice(digits.length-11);
+  if (digits.startsWith('01') && digits.length > 11)    digits = digits.slice(0,11);
+  if (digits.length >= 11 && digits.endsWith('01'))     digits = digits.slice(-11);
+  if (digits.length === 11 && digits.startsWith('01'))  return digits;
+  // fallback: try to find any 11-digit 01*********
+  const m = digits.match(/01\d{9}/);
+  return m ? m[0] : t;
+}
+
 const sanitizeId = s => (s||'')
   .toLowerCase().trim().replace(/\s+/g,'').replace(/[^a-z0-9._-]/g,'');
 
@@ -90,7 +111,200 @@ export async function loginWithNameOrId(identifier, password){
   return { ok:true, userId };
 }
 
-// ------------- Optional per-user KV -------------
+// ========== ORDERS: robust parser ==========
+
+// Utility: pick line content after label (Bangla/English)
+function pickAfter(lines, re){
+  for (const ln of lines) {
+    const m = ln.match(re);
+    if (m && m[1]) return m[1].trim();
+  }
+  return '';
+}
+
+// Is likely a "size/spec" line
+function looksLikeSizeLine(ln){
+  const L = ln.toLowerCase();
+  if (/(?:\d+(?:\.\d+)?)\s*\*\s*(?:\d+(?:\.\d+)?)/.test(L)) return true; // 12*16
+  if (/(?:print|white|black|color|printed)/.test(L)) return true;
+  if (/\b(?:pcs|pieces|pis|টি)\b/.test(L)) return true;
+  return false;
+}
+
+// Is likely a "pieces/quantity" line
+function findPiecesInLine(ln){
+  const L = bnToEnDigits(ln.toLowerCase());
+  const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/);
+  return m ? parseInt(m[2],10) : null;
+}
+
+// Safely evaluate a basic math expression (+ - * / . and spaces)
+function safeEval(expr){
+  const cleaned = expr.replace(/[^0-9.+\-*/() ]/g,'');
+  try{
+    // eslint-disable-next-line no-new-func
+    const out = Function('"use strict";return ('+cleaned+')')();
+    if (typeof out === 'number' && isFinite(out)) return out;
+  }catch(_){}
+  return null;
+}
+
+// NEW: Parse order message (labeled OR unlabeled, BN/EN, flexible order)
+export function parseOrderMessage(raw=""){
+  const textAll = bnToEnDigits(String(raw).replace(/\r/g,'')).trim();
+  const linesRaw = textAll.split('\n').map(s=>s.trim()).filter(Boolean);
+
+  // Normalize "key: value" lines to help matching
+  const lines = linesRaw.map(s=>s.replace(/[|]/g,':'));
+
+  // 1) Phone (labeled or unlabeled – anywhere)
+  let phone =
+    pickAfter(lines, /(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i) ||
+    (textAll.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/)?.[1] ?? '');
+  phone = normalizeBdPhone(phone);
+
+  // 2) Name
+  let name =
+    pickAfter(lines, /(?:নাম|name)\s*[:\-]\s*(.+)/i);
+
+  if (!name){
+    // Heuristic: pick the first short, mostly-alpha line that is NOT the phone / not size / not total / not qty
+    for (const ln of lines){
+      if (ln.includes(phone)) continue;
+      if (/(?:total|মোট)/i.test(ln)) continue;
+      if (looksLikeSizeLine(ln)) continue;
+      if (findPiecesInLine(ln) !== null) continue;
+      // Skip lines starting with numbers (often address or qty)
+      if (/^\d/.test(ln)) continue;
+      // Likely name if 1–3 words, mostly letters
+      if (/^[a-z\s\u0980-\u09FF.]{2,40}$/i.test(ln) && ln.split(/\s+/).length <= 4){
+        name = ln.trim();
+        break;
+      }
+    }
+  }
+
+  // 3) Address
+  let address =
+    pickAfter(lines, /(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
+
+  if (!address){
+    // Choose the longest non-total non-size non-qty line that has spaces (looks like an address)
+    const candidates = lines.filter(ln=>{
+      if (/(?:total|মোট)/i.test(ln)) return false;
+      if (looksLikeSizeLine(ln)) return false;
+      if (findPiecesInLine(ln) !== null) return false;
+      if (ln === name || ln.includes(phone)) return false;
+      return ln.length >= 8;
+    });
+    address = candidates.sort((a,b)=>b.length-a.length)[0] || '';
+  }
+
+  // 4) Size/spec (collect all lines that look like size/spec)
+  let size =
+    pickAfter(lines, /(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
+  if (!size){
+    const pack = lines.filter(looksLikeSizeLine).join(', ');
+    size = pack || '';
+  }
+
+  // 5) Pieces / qty
+  let piecesStr = pickAfter(lines, /(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
+  let pieces = piecesStr ? parseInt(piecesStr, 10) : null;
+  if (pieces == null){
+    // Try explicit "xx pcs/pis" line
+    for (const ln of lines){
+      const n = findPiecesInLine(ln);
+      if (n != null){ pieces = n; break; }
+    }
+  }
+  if (pieces == null){
+    // Try to sum explicit quantities in size spec like "12*16 print 10 pis, 14*18 10 pis"
+    const qtys = [];
+    for (const ln of lines){
+      if (!looksLikeSizeLine(ln)) continue;
+      const matches = [...bnToEnDigits(ln).matchAll(/(^|\D)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/gi)];
+      for (const m of matches) qtys.push(parseInt(m[2],10));
+    }
+    if (qtys.length) pieces = qtys.reduce((a,b)=>a+b,0);
+  }
+  if (pieces == null) pieces = '';
+
+  // 6) COD / Total (multi-line + last "=" + expression + next-line number)
+  let cod = '';
+  // Find first line that mentions total
+  const totalIdx = lines.findIndex(ln => /(?:total|মোট)/i.test(ln));
+  if (totalIdx >= 0){
+    const totalLine = lines[totalIdx].toLowerCase();
+
+    // Last "= number" on the total line
+    const eqMatch = totalLine.match(/= *([0-9][0-9,]*(?:\.[0-9]+)?)(?!.*=)/);
+    if (eqMatch) cod = eqMatch[1];
+
+    // If total line ends with "=", look at the next 1–2 lines for a standalone number (e.g., "245 tk")
+    if (!cod){
+      for (let i=totalIdx+1; i<Math.min(totalIdx+3,lines.length); i++){
+        const mm = lines[i].toLowerCase().match(/(^|\s)([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:tk|taka|টাকা)?\b/);
+        if (mm){ cod = mm[2]; break; }
+      }
+    }
+
+    // Otherwise, try first number after ":" or "=" on the total line
+    if (!cod){
+      const m = totalLine.match(/[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
+      if (m) cod = m[1];
+    }
+
+    // If still empty, try to evaluate the expression before first "="
+    if (!cod){
+      const beforeEq = totalLine.split('=')[0];
+      const afterColon = beforeEq.split(':').slice(1).join(':').trim(); // part after "Total:"
+      const val = safeEval(afterColon);
+      if (val != null) cod = String(val);
+    }
+  }
+
+  // Global fallback: last "= number" anywhere in the whole text
+  if (!cod){
+    const eqLast = textAll.toLowerCase().match(/= *([0-9][0-9,]*(?:\.[0-9]+)?)(?![\s\S]*=)/);
+    if (eqLast) cod = eqLast[1];
+  }
+  // Fallback: first number after "Total:" anywhere
+  if (!cod){
+    const m = textAll.toLowerCase().match(/(?:total|মোট)\s*[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+    if (m) cod = m[1];
+  }
+
+  // Clean commas and words like "tk/taka/টাকা"
+  if (cod) cod = cod.replace(/,/g,'').replace(/\s*(?:tk|taka|টাকা)\b/i,'');
+
+  const codAmount = cod ? Number(cod) : '';
+
+  return {
+    name: name || '',
+    phone: phone || '',
+    address: address || '',
+    size: size || '',
+    pieces: pieces || '',
+    codAmount: codAmount || '',
+    raw
+  };
+}
+
+// A compact payload we’ll copy to the clipboard for the bookmarklet
+export function buildAutofillPayload(o){
+  const clean = (s)=>String(s||'').trim();
+  return JSON.stringify({
+    name: clean(o.name),
+    phone: clean(o.phone),
+    address: clean(o.address),
+    size: clean(o.size),
+    pieces: String(o.pieces ?? '').trim(),
+    codAmount: String(o.codAmount ?? '').trim()
+  });
+}
+
+// ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
 export const store = {
   async setUserKV(userId, key, value){
     await setDoc(doc(db, "users", userId, "kv", key), { value });
@@ -99,84 +313,3 @@ export const store = {
     return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
   }
 };
-
-// =========================
-// PARCELS: parse + helpers
-// =========================
-const nonDigits = /[^\d]/g;
-
-export function normalizeBdPhone(str=""){
-  const digits = String(str).replace(nonDigits,'');
-  // Bangladesh common: 01XXXXXXXXX (11 digits). Try to coerce.
-  if (digits.startsWith('8801') && digits.length >= 13) return '0' + digits.slice(3, 13);
-  if (digits.startsWith('01') && digits.length >= 11)   return digits.slice(0, 11);
-  if (digits.length === 11 && digits[0]==='0')          return digits;
-  return digits; // fallback
-}
-
-export function parseOrderMessage(raw=""){
-  const text = String(raw).replace(/\r/g,'');
-  const lines = text.split('\n');
-
-  const pickAfter = (re) => {
-    for (const ln of lines) {
-      const m = ln.match(re);
-      if (m && m[1]) return m[1].trim();
-    }
-    return '';
-  };
-
-  // Name
-  const name = pickAfter(/(?:নাম|name)\s*[:\-]\s*(.+)/i);
-
-  // Phone
-  let phone = pickAfter(/(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i);
-  if (!phone) {
-    // fallback: first 11+ digit-ish
-    const m = text.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/);
-    if (m) phone = m[1];
-  }
-  phone = normalizeBdPhone(phone);
-
-  // Address
-  const address = pickAfter(/(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
-
-  // Size / Variant
-  const size = pickAfter(/(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
-
-  // Quantity
-  let piecesStr = pickAfter(/(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
-  let pieces = piecesStr ? parseInt(piecesStr,10) : (text.match(/\b([1-9][0-9]{0,3})\s*(?:pcs|pieces|টি)\b/i)?.[1] ? parseInt(RegExp.$1,10) : '');
-
-  // Total / COD amount
-  let cod = '';
-  // best: "Total: 405", "মোট: 405"
-  let codM = text.match(/(?:total|মোট)\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
-  if (codM) cod = codM[1];
-  // expression: "5.5*50=275+130=405" → last number after '='
-  if (!cod) {
-    const lastEq = text.match(/= *([0-9]+(?:\.[0-9]+)?)(?![\s\S]*=)/);
-    if (lastEq) cod = lastEq[1];
-  }
-  // final guard
-  const codAmount = cod ? Number(cod) : '';
-
-  return {
-    name, phone, address,
-    size,
-    pieces: pieces || '',
-    codAmount: codAmount || '',
-    raw
-  };
-}
-
-export function encodeParcelToHash(data){
-  const json = JSON.stringify(data);
-  const b64 = btoa(unescape(encodeURIComponent(json)));
-  return '#PW=' + b64;
-}
-
-export function steadfastUrlWithData(data){
-  const hash = encodeParcelToHash(data);
-  return 'https://www.steadfast.com.bd/user/add-parcel/regular' + hash;
-}

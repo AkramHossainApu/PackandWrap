@@ -3,52 +3,88 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pack & Wrap • Parcels</title>
+  <title>Pack & Wrap • Orders</title>
   <link rel="stylesheet" href="styles.css"/>
+
   <style>
-    .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0;}
-    .title-wrap{display:grid; gap:6px;}
-    .title-wrap h2{margin:0; font-size:24px;}
-    .title-wrap .sub{margin:0; color:var(--muted); font-size:13px;}
-    .grid{display:grid; gap:12px; grid-template-columns:1fr 1fr;}
-    .paste{display:grid; gap:8px;}
-    .paste textarea{min-height:220px; resize:vertical;}
-    .form{display:grid; gap:10px;}
-    .row{display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:center;}
-    .row label{color:var(--muted); font-size:13px;}
-    .help{font-size:12px; color:var(--muted)}
-    .actions{display:flex; gap:8px; flex-wrap:wrap;}
-    @media(max-width:900px){ .grid{grid-template-columns:1fr;} .row{grid-template-columns:1fr;} .row label{font-weight:600;} }
-    .ok{ border:1px solid #16a34a; background:rgba(34,197,94,.1); color:#86efac; padding:8px 10px; border-radius:10px; font-size:13px;}
-    .warn{border:1px solid #f59e0b; background:rgba(245,158,11,.08); color:#fde68a; padding:8px 10px; border-radius:10px; font-size:13px;}
-    .bookmarklet{display:inline-block; padding:8px 12px; border-radius:12px; border:1px dashed var(--border); background:rgba(255,255,255,.06); text-decoration:none;}
+    /* Reuse the refreshed topbar look from overview */
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
+      border-bottom:1px solid var(--border);
+    }
+    .brand-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; }
+    .brand{
+      font-weight:900; letter-spacing:.3px; font-size:18px;
+      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    .chip{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,.06); }
+    .tabs-wrap{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 8px 10px 8px; }
+    .nav-toggle{ display:none; border:1px solid var(--border); background:rgba(255,255,255,.06); padding:8px 12px; border-radius:10px; cursor:pointer; }
+    .tabs{ display:flex; gap:8px; flex-wrap:wrap; padding:6px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.04); }
+    .tabs a{ text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit; transition:background .15s ease, color .15s ease, transform .15s ease; }
+    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
+    .tabs a[aria-current="page"]{ background:linear-gradient(90deg,#a78bfa22,#f472b622); border:1px solid var(--border); font-weight:700; }
+    .tabs .btn.ghost{ margin-left:4px; }
+    @media (max-width:760px){
+      .nav-toggle{ display:inline-block; }
+      .tabs{ display:none; width:100%; flex-direction:column; }
+      .tabs.show{ display:flex; }
+      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
+    }
+
+    /* Page layout */
+    .page-head{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0; }
+    .title-wrap{ display:grid; gap:6px; }
+    .title-wrap h2{ margin:0; font-size:24px; }
+    .title-wrap .sub{ margin:0; color:var(--muted); font-size:13px; }
+
+    .grid-2{
+      display:grid; grid-template-columns:1fr 1fr; gap:12px;
+    }
+    @media(max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
+
+    textarea#orderMsg{
+      min-height:260px; width:100%; resize:vertical;
+    }
+    .form .row{ display:grid; grid-template-columns: 160px 1fr; gap:10px; align-items:center; }
+    .form .row input, .form .row textarea{ width:100%; }
+    .help{ font-size:12px; color:var(--muted); }
+
+    .bookmarklet-block code{
+      user-select: all; display:block; padding:10px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04);
+      overflow:auto; font-size:12px;
+    }
   </style>
 </head>
 
-<body class="bg-grad" id="page-parcels">
+<body class="bg-grad" id="page-orders">
   <div class="bg-figurines" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Same topbar + tabs as Overview (so the route is /{uid}/parcels) -->
+  <!-- Topbar (same pattern as overview) -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
-      <span class="chip" id="overallProfitChip">Parcels</span>
+      <span class="chip" id="overallProfitChip">Orders</span>
     </div>
 
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <a href="/overview.html"    data-route="overview"    id="tabOverview">Overview</a>
-        <a href="/products.html"    data-route="products"    id="tabProducts">Products</a>
+        <a href="/overview.html"    data-route="overview"   id="tabOverview">Overview</a>
+        <a href="/products.html"    data-route="products"   id="tabProducts">Products</a>
         <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
-        <a href="/sales.html"       data-route="sales"       id="tabSales">Sales</a>
-        <a href="/customers.html"   data-route="customers"   id="tabCustomers">Customers</a>
-        <a href="/boost.html"       data-route="boost"       id="tabBoost">Boost</a>
-        <a href="/parcels.html"     data-route="parcels"     id="tabParcels" aria-current="page">Parcels</a>
-        <a href="/backup.html"      data-route="backup"      id="tabBackup">Backup</a>
+        <a href="/sales.html"       data-route="sales"      id="tabSales">Sales</a>
+        <a href="/customers.html"   data-route="customers"  id="tabCustomers">Customers</a>
+        <a href="/boost.html"       data-route="boost"      id="tabBoost">Boost</a>
+        <a href="/backup.html"      data-route="backup"     id="tabBackup">Backup</a>
+        <a href="/orders.html"      data-route="orders"     id="tabOrders" aria-current="page">Orders</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
@@ -58,42 +94,49 @@
     <section class="section">
       <div class="page-head">
         <div class="title-wrap">
-          <h2>Parcels</h2>
-          <p class="sub">Paste the customer’s confirmation message → we’ll parse it for you → review → open Steadfast & autofill.</p>
-        </div>
-        <div class="help">
-          First time? Drag this to your bookmarks bar:&nbsp;
-          <a id="bm" class="bookmarklet" href="#">Fill with Pack&Wrap</a>
+          <h2>Orders</h2>
+          <p class="sub">Paste a confirmation message → we’ll detect Name, Phone, Address, Size, Qty &amp; Total.</p>
         </div>
       </div>
 
-      <div class="grid">
-        <!-- LEFT: Paste -->
-        <div class="card paste">
-          <label for="rawMsg">Paste confirmation message (Bangla or English)</label>
-          <textarea id="rawMsg" placeholder="অর্ডার কনফার্ম করার জন্য...&#10;&#10;Name:&#10;Phone Number:&#10;Full Address:&#10;Size:&#10;Amount:"></textarea>
-          <div id="parseStatus" class="ok" style="display:none"></div>
+      <div class="grid-2">
+        <!-- LEFT: paste -->
+        <div class="card">
+          <div class="field">
+            <label for="orderMsg">Paste confirmation message</label>
+            <!-- No placeholder as requested -->
+            <textarea id="orderMsg"></textarea>
+          </div>
+          <div class="actions" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btnParse" class="btn primary">Parse</button>
+            <button id="btnSample" class="btn">Paste sample</button>
+          </div>
+          <p class="help">Works with Bangla/English, labeled or unlabeled fields, and multi-line totals.</p>
         </div>
 
-        <!-- RIGHT: Parsed / editable -->
+        <!-- RIGHT: review/edit -->
         <div class="card">
-          <div class="form">
-            <div class="row"><label for="name">Name</label><input id="name" type="text" placeholder="Recipient name"/></div>
-            <div class="row"><label for="phone">Phone</label><input id="phone" type="text" placeholder="01XXXXXXXXX"/></div>
-            <div class="row"><label for="address">Address</label><textarea id="address" placeholder="Full delivery address"></textarea></div>
-            <div class="row"><label for="size">Size / Variant</label><input id="size" type="text" placeholder="e.g., 12×16+2 (white printed)"/></div>
-            <div class="row"><label for="pieces">Quantity (pcs)</label><input id="pieces" type="number" min="1" step="1" placeholder="e.g., 50"/></div>
-            <div class="row"><label for="codAmount">COD (TK)</label><input id="codAmount" type="number" min="0" step="0.01" placeholder="Total to collect"/></div>
-            <div class="row"><label for="note">Note</label><input id="note" type="text" placeholder="Optional seller note"/></div>
+          <h3 style="margin:0 0 8px;">Review &amp; edit</h3>
+          <div class="form vgap" id="reviewForm">
+            <div class="row"><label>Name</label>     <input id="fName"     placeholder="Customer name"/></div>
+            <div class="row"><label>Phone</label>    <input id="fPhone"    placeholder="01XXXXXXXXX"/></div>
+            <div class="row"><label>Address</label>  <textarea id="fAddress" rows="3" placeholder="Full address"></textarea></div>
+            <div class="row"><label>Size / Spec</label><textarea id="fSize" rows="2" placeholder="e.g., 12×16 print 10 pcs"></textarea></div>
+            <div class="row"><label>Pieces</label>   <input id="fPieces"   type="number" inputmode="numeric" min="1" placeholder="Qty"/></div>
+            <div class="row"><label>Total (COD)</label><input id="fTotal"  type="number" inputmode="decimal" placeholder="Amount"/></div>
+          </div>
 
-            <div class="actions">
-              <button class="btn primary" id="openSteadfast">Open Steadfast & Autofill</button>
-              <button class="btn" id="copyJson">Copy as JSON</button>
-              <button class="btn ghost" id="clearAll">Clear</button>
-            </div>
+          <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btnCopyPayload" class="btn">Copy Autofill payload</button>
+            <a id="btnOpenSteadfast" class="btn ghost" href="https://www.steadfast.com.bd/user/add-parcel/regular" target="_blank" rel="noopener">Open Steadfast</a>
+          </div>
 
-            <div class="help">
-              After Steadfast opens, click your <b>“Fill with Pack&Wrap”</b> bookmarklet to autofill the form (then review & submit).
+          <div class="bookmarklet-block" style="margin-top:12px;">
+            <div class="help" style="margin-bottom:6px;">After opening Steadfast, click the bookmarklet below to fill the form automatically (reads the payload you copied):</div>
+            <code id="bmCode"></code>
+            <div class="actions" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button id="btnCopyBM" class="btn">Copy Bookmarklet code</button>
+              <span class="help">Create a browser bookmark and paste this code into the URL field.</span>
             </div>
           </div>
         </div>
@@ -102,147 +145,124 @@
   </main>
 
   <script type="module">
-    import { parseOrderMessage, normalizeBdPhone, steadfastUrlWithData } from './app.js';
+    import { parseOrderMessage, buildAutofillPayload } from './app.js';
 
-    // ---- Auth + pretty route + navbar ----
+    // ---------- Auth & pretty URL like other pages ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-      if(!authed || !uid){ history.replaceState({}, '', '/login'); location.replace('index.html'); return; }
-
-      const want = `/${encodeURIComponent(uid)}/parcels`;
+      if(!authed || !uid){
+        history.replaceState({}, '', '/login');
+        location.replace('index.html');
+        return;
+      }
+      const want = `/${encodeURIComponent(uid)}/orders`;
       if (location.pathname !== want) history.replaceState({}, '', want);
 
       const nav = document.getElementById('mainTabs');
-      if (nav) {
-        nav.querySelectorAll('a[data-route]').forEach(a=>{
-          const route = a.getAttribute('data-route');
-          a.setAttribute('href', `/${route}.html`);
-          a.addEventListener('click', function(e){
-            if (a.id === 'logoutBtn') return;
-            e.preventDefault();
-            history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
-            location.assign(`/${route}.html`);
-          });
+      nav?.querySelectorAll('a[data-route]').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        a.setAttribute('href', `/${route}.html`);
+        a.addEventListener('click', (e)=>{
+          if (a.id === 'logoutBtn') return;
+          e.preventDefault();
+          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+          location.assign(`/${route}.html`);
         });
-      }
+      });
+
+      // Mobile nav toggle
+      document.getElementById('navToggle')?.addEventListener('click', ()=>{
+        document.getElementById('mainTabs')?.classList.toggle('show');
+      });
 
       // Logout
       document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
         e.preventDefault();
-        sessionStorage.removeItem('pw_authed'); sessionStorage.removeItem('pw_userId');
-        localStorage.removeItem('pw_authed');  localStorage.removeItem('pw_userId');
-        history.replaceState({}, '', '/login'); location.replace('index.html');
+        sessionStorage.removeItem('pw_authed');
+        sessionStorage.removeItem('pw_userId');
+        localStorage.removeItem('pw_authed');
+        localStorage.removeItem('pw_userId');
+        history.replaceState({}, '', '/login');
+        location.replace('index.html');
       });
     })();
 
-    // ---- Bookmarklet (one-time drag to bookmarks bar) ----
-    // It reads #PW=... on the Steadfast page and tries to fill fields by label/placeholder/name.
-    const bookmarklet = `javascript:(function(){try{var m=location.hash.match(/PW=([^&]+)/);if(!m){alert('No Pack & Wrap data found in URL.');return;}var data=JSON.parse(decodeURIComponent(escape(atob(m[1]))));function ev(el){el&&el.dispatchEvent(new Event('input',{bubbles:true}));el&&el.dispatchEvent(new Event('change',{bubbles:true}));}function fill(el,val){if(!el)return;el.focus();el.value=val;ev(el);}function findByLabelKey(keys){keys=keys.map(k=>k.toLowerCase());var inputs=[].slice.call(document.querySelectorAll('input,textarea,select'));var labels=[].slice.call(document.querySelectorAll('label'));function byText(t){t=(t||'').toLowerCase();return keys.some(k=>t.includes(k));}
-    // try labels
-    for(var i=0;i<labels.length;i++){var L=labels[i];var txt=(L.textContent||'').toLowerCase();if(byText(txt)){var forId=L.getAttribute('for');var inEl=forId?document.getElementById(forId):L.querySelector('input,textarea,select');if(inEl)return inEl;}}
-    // try placeholders/names
-    for(var j=0;j<inputs.length;j++){var I=inputs[j];var ph=(I.getAttribute('placeholder')||'').toLowerCase();var nm=(I.name||'').toLowerCase();if(byText(ph)||byText(nm))return I;}
-    return null;}
-    var nameEl = findByLabelKey(['name','customer','প্রাপক','নাম']);
-    var phoneEl= findByLabelKey(['phone','mobile','মোবাইল','ফোন']);
-    var addrEl = findByLabelKey(['address','delivery','ঠিকানা','street']);
-    var codEl  = findByLabelKey(['cod','collect','amount','cash','মোট','price']);
-    var noteEl = findByLabelKey(['note','product','details','বিবরণ','size','সাইজ']);
-    var qtyEl  = findByLabelKey(['qty','quantity','pieces','pcs','পরিমাণ']);
-    fill(nameEl,data.name||''); fill(phoneEl,data.phone||''); fill(addrEl,data.address||''); fill(codEl,(data.codAmount!=null?data.codAmount:'')); fill(noteEl,data.note||data.size||''); if(qtyEl) fill(qtyEl,(data.pieces!=null?data.pieces:'')); alert('Filled (where fields matched). Please review & submit.');}catch(e){alert('Pack & Wrap fill failed: '+e.message);}})();`;
-    const bmLink = document.getElementById('bm');
-    bmLink.href = bookmarklet;
-
-    // ---- UI wiring ----
-    const els = {
-      raw: document.getElementById('rawMsg'),
-      status: document.getElementById('parseStatus'),
-      name: document.getElementById('name'),
-      phone: document.getElementById('phone'),
-      address: document.getElementById('address'),
-      size: document.getElementById('size'),
-      pieces: document.getElementById('pieces'),
-      cod: document.getElementById('codAmount'),
-      note: document.getElementById('note'),
-      open: document.getElementById('openSteadfast'),
-      copy: document.getElementById('copyJson'),
-      clear: document.getElementById('clearAll')
+    const el = id => document.getElementById(id);
+    const msg = el('orderMsg');
+    const f = {
+      name: el('fName'),
+      phone: el('fPhone'),
+      address: el('fAddress'),
+      size: el('fSize'),
+      pieces: el('fPieces'),
+      total: el('fTotal'),
     };
 
-    function setStatus(msg, ok=true){
-      els.status.style.display = 'block';
-      els.status.className = ok ? 'ok' : 'warn';
-      els.status.textContent = msg;
+    function fillForm(data){
+      f.name.value    = data.name || '';
+      f.phone.value   = data.phone || '';
+      f.address.value = data.address || '';
+      f.size.value    = data.size || '';
+      f.pieces.value  = data.pieces || '';
+      f.total.value   = data.codAmount || '';
     }
 
-    function loadParsed(p){
-      els.name.value    = p.name || '';
-      els.phone.value   = p.phone || '';
-      els.address.value = p.address || '';
-      els.size.value    = p.size || '';
-      els.pieces.value  = p.pieces || '';
-      els.cod.value     = p.codAmount || '';
-      els.note.value    = p.size || ''; // default note = size
-    }
+    // Sample button (multi-line Total example)
+    el('btnSample')?.addEventListener('click', ()=>{
+      msg.value =
+`অর্ডার কনফার্ম করার জন্য আমাদেরকে নিচের তথ্যগুলো দিন 
 
-    function parseNow(){
-      const p = parseOrderMessage(els.raw.value || '');
-      loadParsed(p);
-      const missing = [];
-      if(!p.name) missing.push('name');
-      if(!p.phone) missing.push('phone');
-      if(!p.address) missing.push('address');
-      if(!p.codAmount) missing.push('COD');
-      if (missing.length) setStatus('Parsed, but missing: ' + missing.join(', ') + '. Edit on the right and continue.', false);
-      else setStatus('Looks good! You can open Steadfast or edit anything first.', true);
-    }
+Jannat
+01841831333
+Bagbari uttopara Mirpur 
+12*16 print 10 pis,14*18 print 10 pis,12*16 white 10 pis
+30 pis
 
-    els.raw.addEventListener('input', parseNow);
+Total:5.5*10+6.5*10+4.5*10=165+80=
+245 tk
 
-    els.open.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const data = {
-        name: (els.name.value || '').trim(),
-        phone: normalizeBdPhone(els.phone.value || ''),
-        address: (els.address.value || '').trim(),
-        size: (els.size.value || '').trim(),
-        pieces: els.pieces.value ? Number(els.pieces.value) : '',
-        codAmount: els.cod.value ? Number(els.cod.value) : '',
-        note: (els.note.value || '').trim()
-      };
-      const url = steadfastUrlWithData(data);
-      window.open(url, '_blank', 'noopener');
+Order confirmed ✅`;
+      el('btnParse').click();
     });
 
-    els.copy.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const obj = {
-        name: els.name.value, phone: els.phone.value, address: els.address.value,
-        size: els.size.value, pieces: els.pieces.value, codAmount: els.cod.value, note: els.note.value
-      };
+    // Parse button
+    el('btnParse')?.addEventListener('click', ()=>{
+      const data = parseOrderMessage(msg.value || '');
+      fillForm(data);
+    });
+
+    // Copy payload for bookmarklet (now includes productDetail too)
+    el('btnCopyPayload')?.addEventListener('click', async ()=>{
+      // Base payload from shared helper
+      let base = {};
+      try{ base = JSON.parse(buildAutofillPayload({
+        name: f.name.value, phone: f.phone.value, address: f.address.value,
+        size: f.size.value, pieces: f.pieces.value, codAmount: f.total.value
+      })); }catch{ base = {}; }
+
+      // Enrich with a product description that Steadfast forms often ask for
+      const pcsTxt = (f.pieces.value ? ` (${f.pieces.value} pcs)` : '');
+      base.productDetail = `${f.size.value || ''}${pcsTxt}`.trim();
+
+      const payload = JSON.stringify(base);
       try{
-        await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
-        setStatus('Parcel JSON copied to clipboard ✅', true);
+        await navigator.clipboard.writeText(payload);
+        el('btnCopyPayload').textContent = 'Copied ✓';
+        setTimeout(()=> el('btnCopyPayload').textContent = 'Copy Autofill payload', 1200);
       }catch(_){
-        setStatus('Couldn’t copy to clipboard — select & copy manually.', false);
+        alert('Could not copy to clipboard. Please copy manually:\n\n' + payload);
       }
     });
 
-    els.clear.addEventListener('click', (e)=>{
-      e.preventDefault();
-      els.raw.value = '';
-      ['name','phone','address','size','pieces','cod','note'].forEach(k=>els[k].value='');
-      els.status.style.display='none';
+    // Bookmarklet code (expanded keywords for Steadfast fields)
+    const bm =
+`javascript:(()=>{async function readClip(){try{return await navigator.clipboard.readText()}catch(e){return prompt('Paste payload (JSON):')||''}}function pick(els,keys){keys=keys.map(k=>k.toLowerCase());for(const el of els){const type=(el.type||'').toLowerCase();const tag=(el.tagName||'').toLowerCase();const ph=(el.getAttribute('placeholder')||'').toLowerCase();const name=(el.getAttribute('name')||'').toLowerCase();const id=(el.id||'').toLowerCase();const lbl=document.querySelector('label[for=\"'+el.id+'\"]');const labtxt=(lbl?lbl.textContent:'').toLowerCase();const near=el.closest('div,td,th,li,section,fieldset');const nearTxt=(near?near.textContent:'').toLowerCase();const hay=[ph,name,id,labtxt,nearTxt].join('|');if(keys.some(k=>hay.includes(k))){if(tag==='input'&&(type==='submit'||type==='button'||type==='checkbox'||type==='radio')) continue;return el}}return null}function setVal(el,val){if(!el) return;el.focus();if(el.tagName==='SELECT'){for(const o of el.options){if((o.value||'').toLowerCase()===String(val).toLowerCase()||o.textContent.toLowerCase().includes(String(val).toLowerCase())){el.value=o.value;break}}}else{el.value=val}el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}async function run(){let t=await readClip();if(!t){alert('No payload provided.');return}let d={};try{d=JSON.parse(t)}catch(e){alert('Invalid payload JSON.');return}const all=[...document.querySelectorAll('input,textarea,select')];const nameEl = pick(all,['name','customer name','receiver','recipient','customer','নাম']);const phoneEl= pick(all,['phone','mobile','customer mobile','receiver mobile','মোবাইল','ফোন']);const addrEl = pick(all,['address','delivery address','customer address','receiver address','ঠিকানা']);const codEl  = pick(all,['cod','cod amount','cash','collection','amount','total','টাকা']);const prodEl = pick(all,['product','details','product details','product brief','item','parcel','description']);setVal(nameEl,d.name||'');setVal(phoneEl,d.phone||'');setVal(addrEl,d.address||'');setVal(codEl,d.codAmount||'');setVal(prodEl,d.productDetail||d.size||'');alert('Filled name/phone/address/amount/product. Please review and submit.')}run()})()`;
+    el('bmCode').textContent = bm;
+    el('btnCopyBM')?.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(bm); el('btnCopyBM').textContent='Copied ✓'; setTimeout(()=> el('btnCopyBM').textContent='Copy Bookmarklet code', 1200); }
+      catch(_){ alert('Copy failed. Select the code block and copy it manually.'); }
     });
-
-    // Mobile nav
-    (function(){
-      const tgl = document.getElementById('navToggle');
-      const tabs = document.getElementById('mainTabs');
-      if (!tgl || !tabs) return;
-      tgl.addEventListener('click', ()=> tabs.classList.toggle('show'));
-    })();
   </script>
 </body>
 </html>
