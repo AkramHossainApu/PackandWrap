@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pack & Wrap • Parcels</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .page-head{display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0;}
+    .title-wrap{display:grid; gap:6px;}
+    .title-wrap h2{margin:0; font-size:24px;}
+    .title-wrap .sub{margin:0; color:var(--muted); font-size:13px;}
+    .grid{display:grid; gap:12px; grid-template-columns:1fr 1fr;}
+    .paste{display:grid; gap:8px;}
+    .paste textarea{min-height:220px; resize:vertical;}
+    .form{display:grid; gap:10px;}
+    .row{display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:center;}
+    .row label{color:var(--muted); font-size:13px;}
+    .help{font-size:12px; color:var(--muted)}
+    .actions{display:flex; gap:8px; flex-wrap:wrap;}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr;} .row{grid-template-columns:1fr;} .row label{font-weight:600;} }
+    .ok{ border:1px solid #16a34a; background:rgba(34,197,94,.1); color:#86efac; padding:8px 10px; border-radius:10px; font-size:13px;}
+    .warn{border:1px solid #f59e0b; background:rgba(245,158,11,.08); color:#fde68a; padding:8px 10px; border-radius:10px; font-size:13px;}
+    .bookmarklet{display:inline-block; padding:8px 12px; border-radius:12px; border:1px dashed var(--border); background:rgba(255,255,255,.06); text-decoration:none;}
+  </style>
+</head>
+
+<body class="bg-grad" id="page-parcels">
+  <div class="bg-figurines" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- Same topbar + tabs as Overview (so the route is /{uid}/parcels) -->
+  <header class="topbar">
+    <div class="brand-row">
+      <span class="brand">Pack &amp; Wrap</span>
+      <span class="chip" id="overallProfitChip">Parcels</span>
+    </div>
+
+    <div class="tabs-wrap">
+      <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
+      <nav class="tabs" id="mainTabs">
+        <a href="/overview.html"    data-route="overview"    id="tabOverview">Overview</a>
+        <a href="/products.html"    data-route="products"    id="tabProducts">Products</a>
+        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
+        <a href="/sales.html"       data-route="sales"       id="tabSales">Sales</a>
+        <a href="/customers.html"   data-route="customers"   id="tabCustomers">Customers</a>
+        <a href="/boost.html"       data-route="boost"       id="tabBoost">Boost</a>
+        <a href="/parcels.html"     data-route="parcels"     id="tabParcels" aria-current="page">Parcels</a>
+        <a href="/backup.html"      data-route="backup"      id="tabBackup">Backup</a>
+        <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <div class="page-head">
+        <div class="title-wrap">
+          <h2>Parcels</h2>
+          <p class="sub">Paste the customer’s confirmation message → we’ll parse it for you → review → open Steadfast & autofill.</p>
+        </div>
+        <div class="help">
+          First time? Drag this to your bookmarks bar:&nbsp;
+          <a id="bm" class="bookmarklet" href="#">Fill with Pack&Wrap</a>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- LEFT: Paste -->
+        <div class="card paste">
+          <label for="rawMsg">Paste confirmation message (Bangla or English)</label>
+          <textarea id="rawMsg" placeholder="অর্ডার কনফার্ম করার জন্য...&#10;&#10;Name:&#10;Phone Number:&#10;Full Address:&#10;Size:&#10;Amount:"></textarea>
+          <div id="parseStatus" class="ok" style="display:none"></div>
+        </div>
+
+        <!-- RIGHT: Parsed / editable -->
+        <div class="card">
+          <div class="form">
+            <div class="row"><label for="name">Name</label><input id="name" type="text" placeholder="Recipient name"/></div>
+            <div class="row"><label for="phone">Phone</label><input id="phone" type="text" placeholder="01XXXXXXXXX"/></div>
+            <div class="row"><label for="address">Address</label><textarea id="address" placeholder="Full delivery address"></textarea></div>
+            <div class="row"><label for="size">Size / Variant</label><input id="size" type="text" placeholder="e.g., 12×16+2 (white printed)"/></div>
+            <div class="row"><label for="pieces">Quantity (pcs)</label><input id="pieces" type="number" min="1" step="1" placeholder="e.g., 50"/></div>
+            <div class="row"><label for="codAmount">COD (TK)</label><input id="codAmount" type="number" min="0" step="0.01" placeholder="Total to collect"/></div>
+            <div class="row"><label for="note">Note</label><input id="note" type="text" placeholder="Optional seller note"/></div>
+
+            <div class="actions">
+              <button class="btn primary" id="openSteadfast">Open Steadfast & Autofill</button>
+              <button class="btn" id="copyJson">Copy as JSON</button>
+              <button class="btn ghost" id="clearAll">Clear</button>
+            </div>
+
+            <div class="help">
+              After Steadfast opens, click your <b>“Fill with Pack&Wrap”</b> bookmarklet to autofill the form (then review & submit).
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { parseOrderMessage, normalizeBdPhone, steadfastUrlWithData } from './app.js';
+
+    // ---- Auth + pretty route + navbar ----
+    (function(){
+      const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
+      const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+      if(!authed || !uid){ history.replaceState({}, '', '/login'); location.replace('index.html'); return; }
+
+      const want = `/${encodeURIComponent(uid)}/parcels`;
+      if (location.pathname !== want) history.replaceState({}, '', want);
+
+      const nav = document.getElementById('mainTabs');
+      if (nav) {
+        nav.querySelectorAll('a[data-route]').forEach(a=>{
+          const route = a.getAttribute('data-route');
+          a.setAttribute('href', `/${route}.html`);
+          a.addEventListener('click', function(e){
+            if (a.id === 'logoutBtn') return;
+            e.preventDefault();
+            history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+            location.assign(`/${route}.html`);
+          });
+        });
+      }
+
+      // Logout
+      document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
+        e.preventDefault();
+        sessionStorage.removeItem('pw_authed'); sessionStorage.removeItem('pw_userId');
+        localStorage.removeItem('pw_authed');  localStorage.removeItem('pw_userId');
+        history.replaceState({}, '', '/login'); location.replace('index.html');
+      });
+    })();
+
+    // ---- Bookmarklet (one-time drag to bookmarks bar) ----
+    // It reads #PW=... on the Steadfast page and tries to fill fields by label/placeholder/name.
+    const bookmarklet = `javascript:(function(){try{var m=location.hash.match(/PW=([^&]+)/);if(!m){alert('No Pack & Wrap data found in URL.');return;}var data=JSON.parse(decodeURIComponent(escape(atob(m[1]))));function ev(el){el&&el.dispatchEvent(new Event('input',{bubbles:true}));el&&el.dispatchEvent(new Event('change',{bubbles:true}));}function fill(el,val){if(!el)return;el.focus();el.value=val;ev(el);}function findByLabelKey(keys){keys=keys.map(k=>k.toLowerCase());var inputs=[].slice.call(document.querySelectorAll('input,textarea,select'));var labels=[].slice.call(document.querySelectorAll('label'));function byText(t){t=(t||'').toLowerCase();return keys.some(k=>t.includes(k));}
+    // try labels
+    for(var i=0;i<labels.length;i++){var L=labels[i];var txt=(L.textContent||'').toLowerCase();if(byText(txt)){var forId=L.getAttribute('for');var inEl=forId?document.getElementById(forId):L.querySelector('input,textarea,select');if(inEl)return inEl;}}
+    // try placeholders/names
+    for(var j=0;j<inputs.length;j++){var I=inputs[j];var ph=(I.getAttribute('placeholder')||'').toLowerCase();var nm=(I.name||'').toLowerCase();if(byText(ph)||byText(nm))return I;}
+    return null;}
+    var nameEl = findByLabelKey(['name','customer','প্রাপক','নাম']);
+    var phoneEl= findByLabelKey(['phone','mobile','মোবাইল','ফোন']);
+    var addrEl = findByLabelKey(['address','delivery','ঠিকানা','street']);
+    var codEl  = findByLabelKey(['cod','collect','amount','cash','মোট','price']);
+    var noteEl = findByLabelKey(['note','product','details','বিবরণ','size','সাইজ']);
+    var qtyEl  = findByLabelKey(['qty','quantity','pieces','pcs','পরিমাণ']);
+    fill(nameEl,data.name||''); fill(phoneEl,data.phone||''); fill(addrEl,data.address||''); fill(codEl,(data.codAmount!=null?data.codAmount:'')); fill(noteEl,data.note||data.size||''); if(qtyEl) fill(qtyEl,(data.pieces!=null?data.pieces:'')); alert('Filled (where fields matched). Please review & submit.');}catch(e){alert('Pack & Wrap fill failed: '+e.message);}})();`;
+    const bmLink = document.getElementById('bm');
+    bmLink.href = bookmarklet;
+
+    // ---- UI wiring ----
+    const els = {
+      raw: document.getElementById('rawMsg'),
+      status: document.getElementById('parseStatus'),
+      name: document.getElementById('name'),
+      phone: document.getElementById('phone'),
+      address: document.getElementById('address'),
+      size: document.getElementById('size'),
+      pieces: document.getElementById('pieces'),
+      cod: document.getElementById('codAmount'),
+      note: document.getElementById('note'),
+      open: document.getElementById('openSteadfast'),
+      copy: document.getElementById('copyJson'),
+      clear: document.getElementById('clearAll')
+    };
+
+    function setStatus(msg, ok=true){
+      els.status.style.display = 'block';
+      els.status.className = ok ? 'ok' : 'warn';
+      els.status.textContent = msg;
+    }
+
+    function loadParsed(p){
+      els.name.value    = p.name || '';
+      els.phone.value   = p.phone || '';
+      els.address.value = p.address || '';
+      els.size.value    = p.size || '';
+      els.pieces.value  = p.pieces || '';
+      els.cod.value     = p.codAmount || '';
+      els.note.value    = p.size || ''; // default note = size
+    }
+
+    function parseNow(){
+      const p = parseOrderMessage(els.raw.value || '');
+      loadParsed(p);
+      const missing = [];
+      if(!p.name) missing.push('name');
+      if(!p.phone) missing.push('phone');
+      if(!p.address) missing.push('address');
+      if(!p.codAmount) missing.push('COD');
+      if (missing.length) setStatus('Parsed, but missing: ' + missing.join(', ') + '. Edit on the right and continue.', false);
+      else setStatus('Looks good! You can open Steadfast or edit anything first.', true);
+    }
+
+    els.raw.addEventListener('input', parseNow);
+
+    els.open.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const data = {
+        name: (els.name.value || '').trim(),
+        phone: normalizeBdPhone(els.phone.value || ''),
+        address: (els.address.value || '').trim(),
+        size: (els.size.value || '').trim(),
+        pieces: els.pieces.value ? Number(els.pieces.value) : '',
+        codAmount: els.cod.value ? Number(els.cod.value) : '',
+        note: (els.note.value || '').trim()
+      };
+      const url = steadfastUrlWithData(data);
+      window.open(url, '_blank', 'noopener');
+    });
+
+    els.copy.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      const obj = {
+        name: els.name.value, phone: els.phone.value, address: els.address.value,
+        size: els.size.value, pieces: els.pieces.value, codAmount: els.cod.value, note: els.note.value
+      };
+      try{
+        await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+        setStatus('Parcel JSON copied to clipboard ✅', true);
+      }catch(_){
+        setStatus('Couldn’t copy to clipboard — select & copy manually.', false);
+      }
+    });
+
+    els.clear.addEventListener('click', (e)=>{
+      e.preventDefault();
+      els.raw.value = '';
+      ['name','phone','address','size','pieces','cod','note'].forEach(k=>els[k].value='');
+      els.status.style.display='none';
+    });
+
+    // Mobile nav
+    (function(){
+      const tgl = document.getElementById('navToggle');
+      const tabs = document.getElementById('mainTabs');
+      if (!tgl || !tabs) return;
+      tgl.addEventListener('click', ()=> tabs.classList.toggle('show'));
+    })();
+  </script>
+</body>
+</html>

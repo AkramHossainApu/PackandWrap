@@ -3,6 +3,7 @@
 // Only /users/{userId} at the top level
 // Signup: creates /users/{userId}
 // Login:  reads /users/{userId} (by ID)
+// + Parcels helpers (parse + steadfast url)
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -57,6 +58,7 @@ export async function addUser(username, password, chosenId){
   if (!usernameLower) throw new Error('Username required');
   if (!userId) throw new Error('User ID required');
 
+  // Availability = does /users/{userId} exist?
   const userRef = doc(db, "users", userId);
   const exists  = (await getDoc(userRef)).exists();
   if (exists) throw new Error("User ID already exists");
@@ -88,19 +90,6 @@ export async function loginWithNameOrId(identifier, password){
   return { ok:true, userId };
 }
 
-// Required by index.html
-export async function loginUserById(userId, password){
-  return loginWithNameOrId(userId, password);
-}
-
-// Helpers for pretty URLs & current user
-export function currentUserId(){
-  return sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId') || '';
-}
-export function prettyFor(uid, page){ // 'overview', 'products', ...
-  return `/${encodeURIComponent(uid)}/${page}`;
-}
-
 // ------------- Optional per-user KV -------------
 export const store = {
   async setUserKV(userId, key, value){
@@ -110,3 +99,84 @@ export const store = {
     return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
   }
 };
+
+// =========================
+// PARCELS: parse + helpers
+// =========================
+const nonDigits = /[^\d]/g;
+
+export function normalizeBdPhone(str=""){
+  const digits = String(str).replace(nonDigits,'');
+  // Bangladesh common: 01XXXXXXXXX (11 digits). Try to coerce.
+  if (digits.startsWith('8801') && digits.length >= 13) return '0' + digits.slice(3, 13);
+  if (digits.startsWith('01') && digits.length >= 11)   return digits.slice(0, 11);
+  if (digits.length === 11 && digits[0]==='0')          return digits;
+  return digits; // fallback
+}
+
+export function parseOrderMessage(raw=""){
+  const text = String(raw).replace(/\r/g,'');
+  const lines = text.split('\n');
+
+  const pickAfter = (re) => {
+    for (const ln of lines) {
+      const m = ln.match(re);
+      if (m && m[1]) return m[1].trim();
+    }
+    return '';
+  };
+
+  // Name
+  const name = pickAfter(/(?:নাম|name)\s*[:\-]\s*(.+)/i);
+
+  // Phone
+  let phone = pickAfter(/(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i);
+  if (!phone) {
+    // fallback: first 11+ digit-ish
+    const m = text.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/);
+    if (m) phone = m[1];
+  }
+  phone = normalizeBdPhone(phone);
+
+  // Address
+  const address = pickAfter(/(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
+
+  // Size / Variant
+  const size = pickAfter(/(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
+
+  // Quantity
+  let piecesStr = pickAfter(/(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
+  let pieces = piecesStr ? parseInt(piecesStr,10) : (text.match(/\b([1-9][0-9]{0,3})\s*(?:pcs|pieces|টি)\b/i)?.[1] ? parseInt(RegExp.$1,10) : '');
+
+  // Total / COD amount
+  let cod = '';
+  // best: "Total: 405", "মোট: 405"
+  let codM = text.match(/(?:total|মোট)\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i);
+  if (codM) cod = codM[1];
+  // expression: "5.5*50=275+130=405" → last number after '='
+  if (!cod) {
+    const lastEq = text.match(/= *([0-9]+(?:\.[0-9]+)?)(?![\s\S]*=)/);
+    if (lastEq) cod = lastEq[1];
+  }
+  // final guard
+  const codAmount = cod ? Number(cod) : '';
+
+  return {
+    name, phone, address,
+    size,
+    pieces: pieces || '',
+    codAmount: codAmount || '',
+    raw
+  };
+}
+
+export function encodeParcelToHash(data){
+  const json = JSON.stringify(data);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  return '#PW=' + b64;
+}
+
+export function steadfastUrlWithData(data){
+  const hash = encodeParcelToHash(data);
+  return 'https://www.steadfast.com.bd/user/add-parcel/regular' + hash;
+}
