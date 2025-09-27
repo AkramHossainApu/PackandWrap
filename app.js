@@ -1,11 +1,9 @@
 // ================================
-// app.js — Single Collection Model
-// Only /users/{userId} at the top level
-// Signup: creates /users/{userId}
-// Login:  reads /users/{userId} (by ID)
-// + Robust order-message parser & helpers
-// + Encrypted storage for Steadfast API keys
-// + Client helper to place order via proxy
+// app.js — App core + Orders support
+// - Auth (username == userId)
+// - Robust order-message parsing (BN/EN, labeled/unlabeled)
+// - Secure (encrypted) storage for Steadfast API keys in Firestore
+// - Place order via serverless proxy: /api/steadfastPlaceOrder
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -17,6 +15,7 @@ import {
   getFirestore, doc, setDoc, getDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
+// --- Firebase ---
 const firebaseConfig = {
   apiKey: "AIzaSyD35RFbmf7vRPF1o_VbyEZ1K7wqAYeBhzA",
   authDomain: "packandwrap-web.firebaseapp.com",
@@ -25,7 +24,6 @@ const firebaseConfig = {
   messagingSenderId: "583470090860",
   appId: "1:583470090860:web:32c2d3b35d262a71fde649"
 };
-
 const app = initializeApp(firebaseConfig);
 export const db  = getFirestore(app);
 
@@ -36,7 +34,7 @@ export async function sha(input){
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // Minimal fallback
+  // tiny fallback (rarely used)
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
@@ -50,13 +48,13 @@ export async function sha(input){
   return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
 
-// --- Bangla digits → English
+// Bangla digits → English
 export function bnToEnDigits(s=""){
   const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
   return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
 }
 
-// --- Phone normalizer (BD)
+// Phone normalizer (BD)
 export function normalizeBdPhone(raw=""){
   const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
   let digits = t.replace(/\D/g,'');
@@ -89,7 +87,7 @@ export async function addUser(username, password, chosenId){
     userId,
     username,
     usernameLower,
-    passwordHash: passHash,   // demo auth
+    passwordHash: passHash,
     createdAt: now
   });
 }
@@ -98,66 +96,52 @@ export async function addUser(username, password, chosenId){
 export async function loginWithNameOrId(identifier, password){
   const userId = sanitizeId(identifier);
   if(!userId) return { ok:false };
-
   const snap = await getDoc(doc(db, "users", userId));
   if(!snap.exists()) return { ok:false };
-
   const data = snap.data();
   const passHash = await sha(password);
   if (data.passwordHash !== passHash) return { ok:false };
-
   return { ok:true, userId };
 }
 
-// Alias for your login page code that imports loginUserById
-export const loginUserById = loginWithNameOrId;
+// ====== ORDER PARSER ======
 
-// ========== ORDERS: robust parser ==========
-
+// Tiny helpers
 function pickAfter(lines, re){
-  for (const ln of lines) {
-    const m = ln.match(re);
-    if (m && m[1]) return m[1].trim();
-  }
+  for (const ln of lines) { const m = ln.match(re); if (m && m[1]) return m[1].trim(); }
   return '';
 }
-
 function looksLikeSizeLine(ln){
   const L = ln.toLowerCase();
   if (/(?:\d+(?:\.\d+)?)\s*\*\s*(?:\d+(?:\.\d+)?)/.test(L)) return true; // 12*16
   if (/(?:print|white|black|color|printed)/.test(L)) return true;
-  if (/\b(?:pcs|pieces|pis|টি|পিস)\b/.test(L)) return true;
+  if (/\b(?:pcs|pieces|pis|টি)\b/.test(L)) return true;
   return false;
 }
-
 function findPiecesInLine(ln){
   const L = bnToEnDigits(ln.toLowerCase());
-  const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি|পিস)\b/);
+  const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/);
   return m ? parseInt(m[2],10) : null;
 }
-
 function safeEval(expr){
   const cleaned = expr.replace(/[^0-9.+\-*/() ]/g,'');
-  try{
-    // eslint-disable-next-line no-new-func
-    const out = Function('"use strict";return ('+cleaned+')')();
-    if (typeof out === 'number' && isFinite(out)) return out;
-  }catch(_){}
+  try{ const out = Function('"use strict";return ('+cleaned+')')(); if (typeof out === 'number' && isFinite(out)) return out; }catch(_){}
   return null;
 }
 
+// Parse order (BN/EN, labeled/unlabeled, jumbled lines)
 export function parseOrderMessage(raw=""){
   const textAll = bnToEnDigits(String(raw).replace(/\r/g,'')).trim();
   const linesRaw = textAll.split('\n').map(s=>s.trim()).filter(Boolean);
   const lines = linesRaw.map(s=>s.replace(/[|]/g,':'));
 
-  // phone
+  // Phone
   let phone =
     pickAfter(lines, /(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i) ||
     (textAll.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/)?.[1] ?? '');
   phone = normalizeBdPhone(phone);
 
-  // name
+  // Name
   let name = pickAfter(lines, /(?:নাম|name)\s*[:\-]\s*(.+)/i);
   if (!name){
     for (const ln of lines){
@@ -166,14 +150,11 @@ export function parseOrderMessage(raw=""){
       if (looksLikeSizeLine(ln)) continue;
       if (findPiecesInLine(ln) !== null) continue;
       if (/^\d/.test(ln)) continue;
-      if (/^[a-z\s\u0980-\u09FF.]{2,40}$/i.test(ln) && ln.split(/\s+/).length <= 4){
-        name = ln.trim();
-        break;
-      }
+      if (/^[a-z\s\u0980-\u09FF.]{2,40}$/i.test(ln) && ln.split(/\s+/).length <= 4){ name = ln.trim(); break; }
     }
   }
 
-  // address
+  // Address
   let address = pickAfter(lines, /(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
   if (!address){
     const candidates = lines.filter(ln=>{
@@ -186,54 +167,40 @@ export function parseOrderMessage(raw=""){
     address = candidates.sort((a,b)=>b.length-a.length)[0] || '';
   }
 
-  // size/spec
+  // Size/spec
   let size = pickAfter(lines, /(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
-  if (!size){
-    const pack = lines.filter(looksLikeSizeLine).join(', ');
-    size = pack || '';
-  }
+  if (!size){ size = lines.filter(looksLikeSizeLine).join(', '); }
 
-  // pieces/qty
+  // Pieces
   let piecesStr = pickAfter(lines, /(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
-  let pieces = piecesStr ? parseInt(piecesStr, 10) : null;
+  let pieces = piecesStr ? parseInt(piecesStr,10) : null;
   if (pieces == null){
-    for (const ln of lines){
-      const n = findPiecesInLine(ln);
-      if (n != null){ pieces = n; break; }
-    }
+    for (const ln of lines){ const n = findPiecesInLine(ln); if (n != null){ pieces = n; break; } }
   }
   if (pieces == null){
     const qtys = [];
     for (const ln of lines){
       if (!looksLikeSizeLine(ln)) continue;
-      const matches = [...bnToEnDigits(ln).matchAll(/(^|\D)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি|পিস)\b/gi)];
+      const matches = [...bnToEnDigits(ln).matchAll(/(^|\D)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/gi)];
       for (const m of matches) qtys.push(parseInt(m[2],10));
     }
     if (qtys.length) pieces = qtys.reduce((a,b)=>a+b,0);
   }
   if (pieces == null) pieces = '';
 
-  // total/cod (prefer last = number; handle next-line "245 tk"; evaluate when needed)
+  // COD / Total
   let cod = '';
   const totalIdx = lines.findIndex(ln => /(?:total|মোট)/i.test(ln));
   if (totalIdx >= 0){
     const totalLine = lines[totalIdx].toLowerCase();
-
     const eqMatch = totalLine.match(/= *([0-9][0-9,]*(?:\.[0-9]+)?)(?!.*=)/);
     if (eqMatch) cod = eqMatch[1];
-
     if (!cod){
       for (let i=totalIdx+1; i<Math.min(totalIdx+3,lines.length); i++){
         const mm = lines[i].toLowerCase().match(/(^|\s)([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:tk|taka|টাকা)?\b/);
         if (mm){ cod = mm[2]; break; }
       }
     }
-
-    if (!cod){
-      const m = totalLine.match(/[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
-      if (m) cod = m[1];
-    }
-
     if (!cod){
       const beforeEq = totalLine.split('=')[0];
       const afterColon = beforeEq.split(':').slice(1).join(':').trim();
@@ -253,15 +220,7 @@ export function parseOrderMessage(raw=""){
 
   const codAmount = cod ? Number(cod) : '';
 
-  return {
-    name: name || '',
-    phone: phone || '',
-    address: address || '',
-    size: size || '',
-    pieces: pieces || '',
-    codAmount: codAmount || '',
-    raw
-  };
+  return { name: name||'', phone: phone||'', address: address||'', size: size||'', pieces: pieces||'', codAmount: codAmount||'', raw };
 }
 
 export function buildAutofillPayload(o){
@@ -276,7 +235,7 @@ export function buildAutofillPayload(o){
   });
 }
 
-// ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
+// ------------- Simple per-user KV -------------
 export const store = {
   async setUserKV(userId, key, value){
     await setDoc(doc(db, "users", userId, "kv", key), { value });
@@ -286,80 +245,82 @@ export const store = {
   }
 };
 
-// ------------- Steadfast secrets (AES-GCM, password-hash derived key) -------------
-function hexToBytes(h){ const a=[]; for(let i=0;i<h.length;i+=2)a.push(parseInt(h.slice(i,i+2),16)); return new Uint8Array(a); }
-function b64u(a){ return btoa(String.fromCharCode(...new Uint8Array(a))); }
-function b64d(s){ return Uint8Array.from(atob(s), c=>c.charCodeAt(0)); }
+// ====== SECURE KEY STORAGE (AES-GCM with passphrase) ======
+const te = new TextEncoder();
+const td = new TextDecoder();
 
-export const steadfastCrypto = {
-  async deriveKey(passHashHex, saltB64){
-    const salt = saltB64 ? b64d(saltB64) : crypto.getRandomValues(new Uint8Array(16));
-    const keyMaterial = await crypto.subtle.importKey('raw', hexToBytes(passHashHex), 'PBKDF2', false, ['deriveKey']);
-    const key = await crypto.subtle.deriveKey(
-      { name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' },
-      keyMaterial,
-      { name:'AES-GCM', length:256 },
-      false,
-      ['encrypt','decrypt']
-    );
-    return { key, salt: b64u(salt) };
-  },
-  async enc(passHashHex, plaintext){
-    const {key, salt} = await this.deriveKey(passHashHex);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(plaintext));
-    return { salt, iv: b64u(iv), ct: b64u(ct) };
-  },
-  async dec(passHashHex, salt, iv, ct){
-    const {key} = await this.deriveKey(passHashHex, salt);
-    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv: b64d(iv)}, key, b64d(ct));
-    return new TextDecoder().decode(pt);
-  }
-};
+function b64e(buf){ let s=''; const b=new Uint8Array(buf); for(let i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+function b64d(str){ const bin=atob(str); const out=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i); return out; }
 
-export const steadfastSecrets = {
-  async save(userId, passHashHex, apiKey, secretKey){
-    const e1 = await steadfastCrypto.enc(passHashHex, apiKey);
-    const e2 = await steadfastCrypto.enc(passHashHex, secretKey);
-    await setDoc(doc(db, "users", userId, "integrations", "steadfast"), {
-      salt: e1.salt,
-      api_iv: e1.iv, api_ct: e1.ct,
-      sec_iv: e2.iv, sec_ct: e2.ct,
-      savedAt: new Date().toISOString()
-    });
-  },
-  async load(userId, passHashHex){
-    const snap = await getDoc(doc(db, "users", userId, "integrations", "steadfast"));
-    if(!snap.exists()) return null;
-    const d = snap.data();
-    try{
-      const apiKey = await steadfastCrypto.dec(passHashHex, d.salt, d.api_iv, d.api_ct);
-      const secretKey = await steadfastCrypto.dec(passHashHex, d.salt, d.sec_iv, d.sec_ct);
-      return { apiKey, secretKey };
-    }catch(e){ return null; }
-  }
-};
+async function deriveKey(passphrase, userId){
+  const salt = te.encode(`pw:${userId}:steadfast`);
+  const base = await crypto.subtle.importKey('raw', te.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' },
+    base,
+    { name:'AES-GCM', length:256 },
+    false,
+    ['encrypt','decrypt']
+  );
+}
 
-// ------------- Small user util -------------
-export const userUtil = {
-  currentId(){ return sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId'); }
-};
+async function encryptObject(userId, passphrase, obj){
+  const key = await deriveKey(passphrase, userId);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const pt = te.encode(JSON.stringify(obj));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, pt);
+  return { v:1, iv: b64e(iv), ct: b64e(ct), ts: new Date().toISOString() };
+}
 
-// ------------- Steadfast API proxy helper -------------
-export const steadfastApi = {
-  /**
-   * Calls your backend proxy to place an order at Steadfast.
-   * Deploy a serverless endpoint at /api/steadfastPlaceOrder that forwards to:
-   *   POST https://portal.steadfast.com.bd/api/v1/place-order  (or /create_order)
-   */
-  async placeOrder(apiKey, secretKey, order){
-    const res = await fetch('/api/steadfastPlaceOrder', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ apiKey, secretKey, order })
-    });
-    const data = await res.json().catch(()=> ({}));
-    if (!res.ok) throw new Error(data?.message || 'Failed to create parcel');
-    return data;
-  }
-};
+async function decryptObject(userId, passphrase, enc){
+  const key = await deriveKey(passphrase, userId);
+  const iv = b64d(enc.iv);
+  const ct = b64d(enc.ct);
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
+  return JSON.parse(td.decode(pt));
+}
+
+// Public API for Steadfast keys
+export async function saveSteadfastKeys(userId, passphrase, { apiKey, secretKey }, profile){
+  const payload = { apiKey: String(apiKey||'').trim(), secretKey: String(secretKey||'').trim() };
+  if (!payload.apiKey || !payload.secretKey) throw new Error('API Key and Secret Key required');
+  const enc = await encryptObject(userId, passphrase, payload);
+  await setDoc(doc(db, "users", userId, "kv", "steadfast.keys"), enc);
+  // optional profile (non-secret): company/owner/merchantId
+  const prof = {
+    companyName: String(profile?.companyName||'').trim(),
+    ownerName:   String(profile?.ownerName||'').trim(),
+    merchantId:  String(profile?.merchantId||'').trim(),
+    updatedAt: new Date().toISOString()
+  };
+  await setDoc(doc(db, "users", userId, "kv", "steadfast.profile"), prof);
+  return true;
+}
+
+export async function hasSteadfastKeys(userId){
+  return (await getDoc(doc(db, "users", userId, "kv", "steadfast.keys"))).exists();
+}
+
+export async function unlockSteadfastKeys(userId, passphrase){
+  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast.keys"));
+  if (!snap.exists()) throw new Error('No keys saved');
+  return decryptObject(userId, passphrase, snap.data());
+}
+
+export async function getSteadfastProfile(userId){
+  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast.profile"));
+  return snap.exists() ? snap.data() : {};
+}
+
+// ====== PROXY CALL to place order ======
+const PROXY = '/api/steadfastPlaceOrder'; // Hosting rewrite → Cloud Function
+
+export async function placeSteadfastOrder(userId, passphrase, order){
+  const keys = await unlockSteadfastKeys(userId, passphrase);
+  const body = JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey, order });
+  const res  = await fetch(PROXY, { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  const txt  = await res.text();
+  let json; try{ json = JSON.parse(txt); }catch(_){ json = { raw: txt }; }
+  if (!res.ok) throw new Error(json?.message || 'Steadfast error');
+  return json;
+}
