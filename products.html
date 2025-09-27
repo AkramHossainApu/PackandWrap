@@ -129,17 +129,18 @@
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
+
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <a href="/overview.html"    data-route="overview"    id="tabOverview">Overview</a>
-        <a href="/products.html"    data-route="products"    id="tabProducts">Products</a>
-        <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
-        <a href="/sales.html"       data-route="sales"       id="tabSales">Sales</a>
-        <a href="/customers.html"   data-route="customers"   id="tabCustomers">Customers</a>
-        <a href="/boost.html"       data-route="boost"       id="tabBoost">Boost</a>
-        <a href="/orders.html"      data-route="orders"      id="tabParcels" aria-current="page">Orders</a>
-        <a href="/backup.html"      data-route="backup"      id="tabBackup">Backup</a>
+        <!-- Absolute file hrefs = safe fallback; data-route used for pretty URLs -->
+        <a href="/overview.html"     data-route="overview"     id="tabOverview">Overview</a>
+        <a href="/products.html"     data-route="products"     id="tabProducts" aria-current="page">Products</a>
+        <a href="/investments.html"  data-route="investments"  id="tabInvestments">Investments</a>
+        <a href="/sales.html"        data-route="sales"        id="tabSales">Sales</a>
+        <a href="/customers.html"    data-route="customers"    id="tabCustomers">Customers</a>
+        <a href="/boost.html"        data-route="boost"        id="tabBoost">Boost</a>
+        <a href="/backup.html"       data-route="backup"       id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>

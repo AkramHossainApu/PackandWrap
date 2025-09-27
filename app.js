@@ -3,7 +3,8 @@
 // - Auth (username == userId)
 // - Robust order-message parsing (BN/EN, labeled/unlabeled)
 // - Secure (encrypted) storage for Steadfast API keys in Firestore
-// - Verify via /api/steadfastVerify, place order via /api/steadfastPlaceOrder
+// - Verify keys via /api/steadfastVerify
+// - Place order via /api/steadfastPlaceOrder
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -29,18 +30,18 @@ export const db  = getFirestore(app);
 
 // ---------- Helpers ----------
 export async function sha(input){
-  const enc1 = new TextEncoder();
+  const te = new TextEncoder();
   if (crypto?.subtle?.digest) {
-    const buf = await crypto.subtle.digest('SHA-256', enc1.encode(input));
+    const buf = await crypto.subtle.digest('SHA-256', te.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // tiny fallback (rarely used)
+  // tiny fallback (rare)
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
   let H0=0x6a09e667,H1=0xbb67ae85,H2=0x3c6ef372,H3=0xa54ff53a,H4=0x510e527f,H5=0x9b05688,H6=0x1f83d9ab,H7=0x5be0cd19;
-  const te = new TextEncoder(); // use a different const name to avoid redeclare
-  const bytes=[...te.encode(input)];const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
+  const te2 = new TextEncoder();
+  const bytes=[...te2.encode(input)];const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
   for(let i=0;i<bytes.length;i+=64){const c=bytes.slice(i,i+64);const w=new Array(64);const ws=toWords(c);for(let t=0;t<16;t++)w[t]=ws[t];
     for(let t=16;t<64;t++){const s0=R(7,w[t-15])^R(18,w[t-15])^(w[t-15]>>>3);const s1=R(17,w[t-2])^R(19,w[t-2])^(w[t-2]>>>10);w[t]=(w[t-16]+s0+w[t-7]+s1)|0;}
     let a=H0,b=H1,c2=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
@@ -292,7 +293,8 @@ export async function saveSteadfastKeys(userId, passphrase, { apiKey, secretKey 
     companyName: String(profile?.companyName||'').trim(),
     ownerName:   String(profile?.ownerName||'').trim(),
     merchantId:  String(profile?.merchantId||'').trim(),
-    updatedAt: new Date().toISOString()
+    balance:     profile?.balance ?? null,
+    updatedAt:   new Date().toISOString()
   };
   await setDoc(doc(db, "users", userId, "kv", "steadfast.profile"), prof);
   return true;
@@ -314,28 +316,27 @@ export async function getSteadfastProfile(userId){
 }
 
 // ====== PROXY CALLS ======
-const PROXY_VERIFY = '/api/steadfastVerify';
-const PROXY_PLACE  = '/api/steadfastPlaceOrder';
+const VERIFY = '/api/steadfastVerify';
+const PLACE  = '/api/steadfastPlaceOrder';
 
-export async function verifySteadfastKeys(userId, passphrase){
-  const keys = await unlockSteadfastKeys(userId, passphrase);
-  const res  = await fetch(PROXY_VERIFY, {
+export async function verifySteadfastKeys(apiKey, secretKey){
+  const res = await fetch(VERIFY, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey })
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ apiKey, secretKey })
   });
-  const txt = await res.text();
-  let json; try{ json = JSON.parse(txt); }catch(_){ json = { raw: txt }; }
-  if (!res.ok) throw new Error(json?.message || 'Verify failed');
-  return json; // e.g., { status:200, current_balance: ... }
+  const json = await res.json().catch(()=>({}));
+  return json?.ok ? { ok:true, profile: json.profile||{} } : { ok:false, message: json?.message || 'Verify failed' };
 }
 
 export async function placeSteadfastOrder(userId, passphrase, order){
   const keys = await unlockSteadfastKeys(userId, passphrase);
-  const body = JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey, order });
-  const res  = await fetch(PROXY_PLACE, { method:'POST', headers:{'Content-Type':'application/json'}, body });
-  const txt  = await res.text();
-  let json; try{ json = JSON.parse(txt); }catch(_){ json = { raw: txt }; }
-  if (!res.ok) throw new Error(json?.message || 'Steadfast error');
-  return json;
+  const res  = await fetch(PLACE, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey, order })
+  });
+  const json = await res.json().catch(()=>({}));
+  if (!json?.ok) throw new Error(json?.message || 'Steadfast error');
+  return json.result;
 }

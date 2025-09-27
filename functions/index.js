@@ -1,69 +1,83 @@
-// Firebase Functions v2 (Node 18+)
+// functions/index.js
 // Deploy: firebase deploy --only functions
 import { onRequest } from "firebase-functions/v2/https";
+import fetch from "node-fetch";
 
-// CORS helper
+// CORS
 function allowCors(res){
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.set('Access-Control-Allow-Methods', 'POST,GET,OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
 }
 
-const BASE = 'https://portal.packzy.com/api/v1'; // Official v1 base
+function getHeaders(apiKey, secretKey){
+  return {
+    'Content-Type':'application/json',
+    'Api-Key': apiKey,
+    'Secret-Key': secretKey
+  };
+}
 
 export const steadfastVerify = onRequest({ cors: true }, async (req, res) => {
   allowCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ message:'Method not allowed' });
-
-  const { apiKey, secretKey } = req.body || {};
-  if (!apiKey || !secretKey){
-    return res.status(400).json({ message:'apiKey and secretKey are required' });
-  }
+  if (req.method !== 'POST')     return res.status(405).json({ message:'Method not allowed' });
 
   try{
-    const r = await fetch(`${BASE}/get_balance`, {
-      method: 'GET',
-      headers: {
-        'Api-Key': apiKey,
-        'Secret-Key': secretKey
-      }
-    });
-    const text = await r.text();
-    let json; try{ json = JSON.parse(text); }catch(_){ json = { raw: text }; }
-    if (!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
-    // Typical: { status:200, current_balance: 0 }
-    return res.status(200).json(json);
+    const { apiKey, secretKey } = req.body || {};
+    if (!apiKey || !secretKey) return res.status(400).json({ message:'apiKey & secretKey required' });
+
+    // Most commonly exposed endpoint for a quick, harmless verification is `get_balance`
+    // on Packzy/Steadfast APIs with Api-Key / Secret-Key headers.
+    // Try get_balance first; if that fails, try merchant/profile-like fallbacks if they ever exist.
+    const base = 'https://portal.steadfast.com.bd/api/v1';
+    const headers = getHeaders(apiKey, secretKey);
+
+    // Primary verification – balance endpoint
+    const r = await fetch(`${base}/get_balance`, { method:'POST', headers, body: JSON.stringify({}) });
+    const t = await r.text();
+    let j; try{ j = JSON.parse(t); }catch(_){ j = { raw:t }; }
+    if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
+
+    // Normalized profile-ish data (the response often only has balance)
+    const profile = {
+      balance: j?.balance ?? j?.data?.balance ?? null
+    };
+    return res.status(200).json({ ok:true, profile });
   }catch(err){
-    return res.status(502).json({ message: String(err.message || err) });
+    return res.status(200).json({ ok:false, message: String(err.message || err) });
   }
 });
 
 export const steadfastPlaceOrder = onRequest({ cors: true }, async (req, res) => {
   allowCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ message:'Method not allowed' });
-
-  const { apiKey, secretKey, order } = req.body || {};
-  if (!apiKey || !secretKey || !order){
-    return res.status(400).json({ message:'apiKey, secretKey and order are required' });
-  }
+  if (req.method !== 'POST')     return res.status(405).json({ message:'Method not allowed' });
 
   try{
-    const r = await fetch(`${BASE}/create_order`, {
-      method: 'POST',
-      headers: {
-        'Content-Type':'application/json',
-        'Api-Key': apiKey,
-        'Secret-Key': secretKey
-      },
-      body: JSON.stringify(order)
-    });
-    const text = await r.text();
-    let json; try{ json = JSON.parse(text); }catch(_){ json = { raw: text }; }
-    if (!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
-    return res.status(200).json(json);
+    const { apiKey, secretKey, order } = req.body || {};
+    if (!apiKey || !secretKey || !order){
+      return res.status(400).json({ message:'apiKey, secretKey and order are required' });
+    }
+
+    const base = 'https://portal.steadfast.com.bd/api/v1';
+    const headers = getHeaders(apiKey, secretKey);
+
+    async function hit(path){
+      const r = await fetch(base + path, { method:'POST', headers, body: JSON.stringify(order) });
+      const t = await r.text();
+      let json; try{ json = JSON.parse(t); }catch(_){ json = { raw:t }; }
+      if (!r.ok) throw new Error(json?.message || json?.error || `HTTP ${r.status}`);
+      return json;
+    }
+
+    // Try new → old
+    let out;
+    try { out = await hit('/place-order'); }
+    catch(_e){ out = await hit('/create_order'); }
+
+    return res.status(200).json({ ok:true, result: out });
   }catch(err){
-    return res.status(502).json({ message: String(err.message || err) });
+    return res.status(200).json({ ok:false, message: String(err.message || err) });
   }
 });

@@ -4,7 +4,7 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/api/steadfastPlaceOrder", "function": "steadfastPlaceOrder" },
-      { "source": "/api/steadfastVerify", "function": "steadfastVerify" },
+      { "source": "/api/steadfastVerify",     "function": "steadfastVerify"     },
       { "source": "**", "destination": "/404.html" }
     ]
   },
