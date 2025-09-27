@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css"/>
 
   <style>
-    /* Reuse the refreshed topbar look from overview */
+    /* Same topbar & tabs UI as your overview page */
     .topbar{
       position:sticky; top:0; z-index:50;
       backdrop-filter: blur(10px);
@@ -36,20 +36,16 @@
       .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
     }
 
-    /* Page layout */
+    /* Orders page layout */
     .page-head{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0; }
     .title-wrap{ display:grid; gap:6px; }
     .title-wrap h2{ margin:0; font-size:24px; }
     .title-wrap .sub{ margin:0; color:var(--muted); font-size:13px; }
 
-    .grid-2{
-      display:grid; grid-template-columns:1fr 1fr; gap:12px;
-    }
+    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media(max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
 
-    textarea#orderMsg{
-      min-height:260px; width:100%; resize:vertical;
-    }
+    textarea#orderMsg{ min-height:260px; width:100%; resize:vertical; }
     .form .row{ display:grid; grid-template-columns: 160px 1fr; gap:10px; align-items:center; }
     .form .row input, .form .row textarea{ width:100%; }
     .help{ font-size:12px; color:var(--muted); }
@@ -67,11 +63,12 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Topbar (same pattern as overview) -->
+  <!-- Topbar (unchanged UI) -->
   <header class="topbar">
+    <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
-      <span class="chip" id="overallProfitChip">Orders</span>
+      <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
 
     <div class="tabs-wrap">
@@ -104,26 +101,25 @@
         <div class="card">
           <div class="field">
             <label for="orderMsg">Paste confirmation message</label>
-            <!-- No placeholder as requested -->
+            <!-- No placeholder (per your request) -->
             <textarea id="orderMsg"></textarea>
           </div>
           <div class="actions" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
             <button id="btnParse" class="btn primary">Parse</button>
-            <button id="btnSample" class="btn">Paste sample</button>
           </div>
-          <p class="help">Works with Bangla/English, labeled or unlabeled fields, and multi-line totals.</p>
+          <p class="help">Bangla/English, labeled or unlabeled, multi-line totals supported.</p>
         </div>
 
         <!-- RIGHT: review/edit -->
         <div class="card">
           <h3 style="margin:0 0 8px;">Review &amp; edit</h3>
           <div class="form vgap" id="reviewForm">
-            <div class="row"><label>Name</label>     <input id="fName"     placeholder="Customer name"/></div>
-            <div class="row"><label>Phone</label>    <input id="fPhone"    placeholder="01XXXXXXXXX"/></div>
-            <div class="row"><label>Address</label>  <textarea id="fAddress" rows="3" placeholder="Full address"></textarea></div>
-            <div class="row"><label>Size / Spec</label><textarea id="fSize" rows="2" placeholder="e.g., 12×16 print 10 pcs"></textarea></div>
-            <div class="row"><label>Pieces</label>   <input id="fPieces"   type="number" inputmode="numeric" min="1" placeholder="Qty"/></div>
-            <div class="row"><label>Total (COD)</label><input id="fTotal"  type="number" inputmode="decimal" placeholder="Amount"/></div>
+            <div class="row"><label>Name</label>     <input id="fName"/></div>
+            <div class="row"><label>Phone</label>    <input id="fPhone"/></div>
+            <div class="row"><label>Address</label>  <textarea id="fAddress" rows="3"></textarea></div>
+            <div class="row"><label>Size / Spec</label><textarea id="fSize" rows="2"></textarea></div>
+            <div class="row"><label>Pieces</label>   <input id="fPieces"   type="number" inputmode="numeric" min="1"/></div>
+            <div class="row"><label>Total (COD)</label><input id="fTotal"  type="number" inputmode="decimal"/></div>
           </div>
 
           <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
@@ -144,10 +140,11 @@
     </section>
   </main>
 
+  <!-- app.js exports the parsing helpers used below -->
   <script type="module">
     import { parseOrderMessage, buildAutofillPayload } from './app.js';
 
-    // ---------- Auth & pretty URL like other pages ----------
+    // ---------- Auth & pretty URLs (unchanged behavior) ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
@@ -208,40 +205,22 @@
       f.total.value   = data.codAmount || '';
     }
 
-    // Sample button (multi-line Total example)
-    el('btnSample')?.addEventListener('click', ()=>{
-      msg.value =
-`অর্ডার কনফার্ম করার জন্য আমাদেরকে নিচের তথ্যগুলো দিন 
-
-Jannat
-01841831333
-Bagbari uttopara Mirpur 
-12*16 print 10 pis,14*18 print 10 pis,12*16 white 10 pis
-30 pis
-
-Total:5.5*10+6.5*10+4.5*10=165+80=
-245 tk
-
-Order confirmed ✅`;
-      el('btnParse').click();
-    });
-
     // Parse button
     el('btnParse')?.addEventListener('click', ()=>{
       const data = parseOrderMessage(msg.value || '');
       fillForm(data);
     });
 
-    // Copy payload for bookmarklet (now includes productDetail too)
+    // Copy payload for the bookmarklet (adds productDetail too)
     el('btnCopyPayload')?.addEventListener('click', async ()=>{
-      // Base payload from shared helper
       let base = {};
-      try{ base = JSON.parse(buildAutofillPayload({
-        name: f.name.value, phone: f.phone.value, address: f.address.value,
-        size: f.size.value, pieces: f.pieces.value, codAmount: f.total.value
-      })); }catch{ base = {}; }
+      try{
+        base = JSON.parse(buildAutofillPayload({
+          name: f.name.value, phone: f.phone.value, address: f.address.value,
+          size: f.size.value, pieces: f.pieces.value, codAmount: f.total.value
+        }));
+      }catch{ base = {}; }
 
-      // Enrich with a product description that Steadfast forms often ask for
       const pcsTxt = (f.pieces.value ? ` (${f.pieces.value} pcs)` : '');
       base.productDetail = `${f.size.value || ''}${pcsTxt}`.trim();
 
@@ -255,7 +234,7 @@ Order confirmed ✅`;
       }
     });
 
-    // Bookmarklet code (expanded keywords for Steadfast fields)
+    // Bookmarklet code (fills Steadfast fields heuristically)
     const bm =
 `javascript:(()=>{async function readClip(){try{return await navigator.clipboard.readText()}catch(e){return prompt('Paste payload (JSON):')||''}}function pick(els,keys){keys=keys.map(k=>k.toLowerCase());for(const el of els){const type=(el.type||'').toLowerCase();const tag=(el.tagName||'').toLowerCase();const ph=(el.getAttribute('placeholder')||'').toLowerCase();const name=(el.getAttribute('name')||'').toLowerCase();const id=(el.id||'').toLowerCase();const lbl=document.querySelector('label[for=\"'+el.id+'\"]');const labtxt=(lbl?lbl.textContent:'').toLowerCase();const near=el.closest('div,td,th,li,section,fieldset');const nearTxt=(near?near.textContent:'').toLowerCase();const hay=[ph,name,id,labtxt,nearTxt].join('|');if(keys.some(k=>hay.includes(k))){if(tag==='input'&&(type==='submit'||type==='button'||type==='checkbox'||type==='radio')) continue;return el}}return null}function setVal(el,val){if(!el) return;el.focus();if(el.tagName==='SELECT'){for(const o of el.options){if((o.value||'').toLowerCase()===String(val).toLowerCase()||o.textContent.toLowerCase().includes(String(val).toLowerCase())){el.value=o.value;break}}}else{el.value=val}el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}async function run(){let t=await readClip();if(!t){alert('No payload provided.');return}let d={};try{d=JSON.parse(t)}catch(e){alert('Invalid payload JSON.');return}const all=[...document.querySelectorAll('input,textarea,select')];const nameEl = pick(all,['name','customer name','receiver','recipient','customer','নাম']);const phoneEl= pick(all,['phone','mobile','customer mobile','receiver mobile','মোবাইল','ফোন']);const addrEl = pick(all,['address','delivery address','customer address','receiver address','ঠিকানা']);const codEl  = pick(all,['cod','cod amount','cash','collection','amount','total','টাকা']);const prodEl = pick(all,['product','details','product details','product brief','item','parcel','description']);setVal(nameEl,d.name||'');setVal(phoneEl,d.phone||'');setVal(addrEl,d.address||'');setVal(codEl,d.codAmount||'');setVal(prodEl,d.productDetail||d.size||'');alert('Filled name/phone/address/amount/product. Please review and submit.')}run()})()`;
     el('bmCode').textContent = bm;
