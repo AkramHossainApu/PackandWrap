@@ -6,55 +6,30 @@
   <title>Pack & Wrap • Orders</title>
   <link rel="stylesheet" href="styles.css"/>
   <style>
-    /* Topbar (same as Overview) */
-    .topbar{ position:sticky; top:0; z-index:50; backdrop-filter: blur(10px);
-      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-      border-bottom:1px solid var(--border); }
-    .brand-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; }
-    .brand{ font-weight:900; letter-spacing:.3px; font-size:18px;
-      background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
-      -webkit-background-clip:text; background-clip:text; color:transparent; text-shadow:0 2px 8px rgba(0,0,0,.25);}
-    .chip{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,.06); }
-    .tabs-wrap{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 8px 10px 8px; }
-    .nav-toggle{ display:none; border:1px solid var(--border); background:rgba(255,255,255,.06); padding:8px 12px; border-radius:10px; cursor:pointer; }
-    .tabs{ display:flex; gap:8px; flex-wrap:wrap; padding:6px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.04); }
-    .tabs a{ text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit; transition:background .15s ease, color .15s ease, transform .15s ease; }
-    .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
-    .tabs a[aria-current="page"]{ background:linear-gradient(90deg,#a78bfa22,#f472b622); border:1px solid var(--border); font-weight:700; }
-    .tabs .btn.ghost{ margin-left:4px; }
-    @media (max-width:760px){
-      .nav-toggle{ display:inline-block; }
-      .tabs{ display:none; width:100%; flex-direction:column; }
-      .tabs.show{ display:flex; }
-      .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
-      .tabs .btn.ghost{ margin-left:0; }
-    }
+    /* Compact, responsive layout for Orders */
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .hgroup { display:grid; gap:6px; margin:14px 0; }
+    .hgroup h2 { margin:0; font-size:22px; }
+    .hgroup .sub { margin:0; color:var(--muted); font-size:13px; }
 
-    /* Page layout */
-    .page{ display:grid; gap:16px; margin:16px auto; max-width:1000px; padding:0 12px; }
-    .section-title{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .who{ display:flex; gap:10px; align-items:center; color:#e7dff1; }
-    .who .name{ font-weight:800; }
-    .who .meta{ color:var(--muted); font-size:12px; }
+    .grid { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+    @media (max-width:840px){ .grid{ grid-template-columns:1fr; } }
 
-    .card.soft{ padding:16px; border-radius:16px; }
-    .inline{ display:flex; gap:10px; flex-wrap:wrap; }
-    .inline > * { flex:1; min-width:220px; }
-    .help{ color:var(--muted); font-size:12px; }
+    .card.pad { padding:14px; }
+    .row { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
+    .row .full { grid-column: 1 / -1; }
+    @media (max-width:620px){ .row{ grid-template-columns:1fr; } }
 
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    @media (max-width:860px){ .grid2{ grid-template-columns:1fr; } }
+    textarea.input { min-height: 140px; resize: vertical; }
 
-    .actions{ display:flex; gap:10px; flex-wrap:wrap; }
-    .ok{ color:#22c55e; }
-    .err{ color:#f87171; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
+    .ok { color:#34d399; font-weight:600; }
+    .bad { color:#f87171; font-weight:600; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; }
 
-    textarea{ width:100%; min-height:160px; resize:vertical; }
-    .tableish{ display:grid; gap:10px; }
-    .row{ display:grid; grid-template-columns:120px 1fr; gap:8px; align-items:center; }
-    .row label{ color:var(--muted); font-size:12px; }
-    .row input,.row textarea{ width:100%; }
+    .btn-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .sep{ height:1px; background:var(--border); margin:10px 0; }
+    .muted{ color:var(--muted); font-size:12px; }
+    .pill{ padding:4px 8px; border:1px solid var(--border); border-radius:999px; font-size:12px; background:rgba(255,255,255,.04); }
   </style>
 </head>
 
@@ -64,7 +39,7 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar -->
+  <!-- Navbar (same as overview, with Orders tab) -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
@@ -87,133 +62,113 @@
     </div>
   </header>
 
-  <main class="page">
-    <div class="section-title">
-      <div class="who">
-        <div class="name" id="merchantName">Orders</div>
-        <div class="meta" id="merchantMeta"></div>
+  <main class="container">
+    <div class="wrap">
+      <div class="hgroup">
+        <h2>Orders</h2>
+        <p class="sub">Connect Steadfast once, then paste a confirmation message to auto-fill and place the parcel.</p>
       </div>
-      <div id="connectState" class="help"></div>
+
+      <!-- CONNECT / VERIFY -->
+      <section class="card pad" id="connectCard">
+        <h3 style="margin-top:0">Connect Steadfast</h3>
+        <p class="muted">Log in to the Steadfast merchant panel → <strong>More</strong> → <strong>API</strong> → create a new key, then paste below. We’ll verify via <span class="mono">/get_balance</span> and store them encrypted.</p>
+        <div class="row" style="margin-top:10px">
+          <label class="full">API Key
+            <input id="sfApi" class="input" autocomplete="off"/>
+          </label>
+          <label class="full">Secret Key
+            <input id="sfSecret" class="input" autocomplete="off"/>
+          </label>
+          <label class="full">Unlock phrase (for local encryption)
+            <input id="sfPass" class="input" autocomplete="new-password"/>
+          </label>
+        </div>
+        <div class="btn-row" style="margin-top:8px">
+          <button id="btnVerifySave" class="btn primary">Verify &amp; Save</button>
+          <span id="connectStatus" class="muted"></span>
+        </div>
+        <div class="sep"></div>
+        <div class="muted">Already saved? Enter your unlock phrase and press <em>Unlock</em>.</div>
+        <div class="btn-row" style="margin-top:8px">
+          <button id="btnUnlock" class="btn">Unlock</button>
+          <button id="btnDisconnect" class="btn ghost">Disconnect</button>
+          <span id="unlockStatus" class="muted"></span>
+        </div>
+      </section>
+
+      <!-- ACCOUNT (after verified/unlocked) -->
+      <section class="card pad" id="accountCard" style="display:none">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:800;">Steadfast Account</div>
+            <div class="muted">Verified via <span class="mono">/get_balance</span>. <span id="acctBalance" class="pill">Balance —</span></div>
+          </div>
+          <div class="btn-row">
+            <button id="btnRotate" class="btn">Update Keys</button>
+            <button id="btnLock" class="btn ghost">Lock</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PASTE & PARSE -->
+      <section class="card pad" id="orderCard" style="display:none">
+        <h3 style="margin-top:0">Paste Confirmation Message</h3>
+        <label class="full">
+          <textarea id="msg" class="input mono" aria-label="Paste order confirmation message here"></textarea>
+        </label>
+
+        <div class="row" style="margin-top:12px">
+          <label>Name
+            <input id="name" class="input"/>
+          </label>
+          <label>Phone
+            <input id="phone" class="input"/>
+          </label>
+          <label class="full">Address
+            <input id="address" class="input"/>
+          </label>
+          <label>Size / Description
+            <input id="size" class="input"/>
+          </label>
+          <label>Pieces (Total Lot)
+            <input id="pieces" class="input" inputmode="numeric"/>
+          </label>
+          <label>COD Amount (BDT)
+            <input id="cod" class="input" inputmode="decimal"/>
+          </label>
+        </div>
+
+        <div class="btn-row" style="margin-top:12px">
+          <button id="btnParse" class="btn">Parse Again</button>
+          <button id="btnPlace" class="btn primary">Place Order</button>
+          <span id="placeStatus" class="muted"></span>
+        </div>
+      </section>
+
+      <!-- RESULT -->
+      <section class="card pad" id="resultCard" style="display:none">
+        <div id="resultBox" class="mono"></div>
+      </section>
     </div>
-
-    <!-- CONNECT CARD (shows only when not connected or not unlocked) -->
-    <section class="card soft" id="connectCard" style="display:none">
-      <h3 style="margin:0 0 8px">Connect to Steadfast</h3>
-      <p class="help" style="margin:0 0 10px">
-        Get your API Key & Secret Key: after logging into Steadfast, open the main menu → “More” → “API” → create a new API key.
-      </p>
-
-      <div class="inline" id="connectInputs">
-        <div>
-          <label>API Key</label>
-          <input id="sfApiKey" autocomplete="off"/>
-        </div>
-        <div>
-          <label>Secret Key</label>
-          <input id="sfSecretKey" autocomplete="off"/>
-        </div>
-        <div>
-          <label>Local Passphrase (to lock/unlock your keys)</label>
-          <input id="sfPass" type="password" autocomplete="new-password"/>
-        </div>
-      </div>
-
-      <div class="inline" style="margin-top:8px">
-        <div>
-          <label>Company Name (optional)</label>
-          <input id="sfCompany" autocomplete="organization"/>
-        </div>
-        <div>
-          <label>Owner Name (optional)</label>
-          <input id="sfOwner" autocomplete="name"/>
-        </div>
-        <div>
-          <label>Merchant/User ID (optional)</label>
-          <input id="sfMerchantId" autocomplete="off"/>
-        </div>
-      </div>
-
-      <div class="actions" style="margin-top:12px">
-        <button class="btn primary" id="btnVerifySave">Verify &amp; Save</button>
-        <button class="btn" id="btnUnlockSaved">I already saved keys → Unlock</button>
-        <span id="connectMsg" class="help"></span>
-      </div>
-    </section>
-
-    <!-- UNLOCK CARD (shown if keys exist but locked) -->
-    <section class="card soft" id="unlockCard" style="display:none">
-      <h3 style="margin:0 0 8px">Unlock your saved keys</h3>
-      <div class="inline">
-        <div>
-          <label>Local Passphrase</label>
-          <input id="unlockPass" type="password" autocomplete="current-password"/>
-        </div>
-      </div>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn primary" id="btnUnlockGo">Unlock</button>
-        <button class="btn ghost" id="btnRelock" style="display:none">Lock</button>
-        <span id="unlockMsg" class="help"></span>
-      </div>
-    </section>
-
-    <!-- ORDER CARD (visible when connected & unlocked) -->
-    <section class="card soft" id="orderCard" style="display:none">
-      <div class="grid2">
-        <div>
-          <h3 style="margin:0 0 8px">Paste confirmation message</h3>
-          <!-- no placeholder per your request -->
-          <textarea id="pasteBox"></textarea>
-          <div class="actions" style="margin-top:8px">
-            <button class="btn" id="btnParse">Parse</button>
-          </div>
-        </div>
-
-        <div>
-          <h3 style="margin:0 0 8px">Review &amp; edit</h3>
-          <div class="tableish">
-            <div class="row"><label>Name</label><input id="fName"/></div>
-            <div class="row"><label>Phone</label><input id="fPhone"/></div>
-            <div class="row"><label>Address</label><textarea id="fAddr" rows="3"></textarea></div>
-            <div class="row"><label>Size/Note</label><input id="fSize"/></div>
-            <div class="row"><label>Pieces</label><input id="fPieces" type="number" min="0"/></div>
-            <div class="row"><label>COD (BDT)</label><input id="fCod" type="number" min="0" step="0.01"/></div>
-          </div>
-
-          <div class="actions" style="margin-top:10px">
-            <button class="btn primary" id="btnPlace">Place Order</button>
-            <span id="placeMsg" class="help"></span>
-          </div>
-
-          <div id="resultBox" class="mono" style="margin-top:10px; font-size:13px;"></div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <script type="module">
     import {
-      parseOrderMessage,
-      hasSteadfastKeys, saveSteadfastKeys, unlockSteadfastKeys, getSteadfastProfile,
-      verifySteadfastKeysRaw, verifySteadfastKeys, placeSteadfastOrder
+      hasSteadfastKeys, unlockSteadfastKeys, verifySteadfastKeys,
+      getSteadfastProfile, saveSteadfastKeys,
+      parseOrderMessage, placeSteadfastOrder, makeInvoice
     } from './app.js';
 
-    // ---------- Auth gate & pretty URL ----------
+    // ---------- Auth & pretty URL ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-
-      if(!authed || !uid){
-        history.replaceState({}, '', '/login');
-        location.replace('index.html');
-        return;
-      }
-
+      if(!authed || !uid){ history.replaceState({}, '', '/login'); location.replace('index.html'); return; }
       const want = `/${encodeURIComponent(uid)}/orders`;
-      if (location.pathname !== want) {
-        history.replaceState({}, '', want);
-      }
+      if (location.pathname !== want) history.replaceState({}, '', want);
 
-      // Wire navbar links to pretty URLs
+      // Wire navbar links to pretty URLs + actual files
       const nav = document.getElementById('mainTabs');
       if (nav) {
         nav.querySelectorAll('a[data-route]').forEach(a=>{
@@ -228,11 +183,6 @@
         });
       }
 
-      // Mobile nav toggle
-      document.getElementById('navToggle')?.addEventListener('click', ()=>{
-        document.getElementById('mainTabs')?.classList.toggle('show');
-      });
-
       // Logout
       document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
         e.preventDefault();
@@ -243,191 +193,159 @@
         history.replaceState({}, '', '/login');
         location.replace('index.html');
       });
+
+      // Mobile toggle
+      document.getElementById('navToggle')?.addEventListener('click', ()=>{
+        document.getElementById('mainTabs')?.classList.toggle('show');
+      });
+
+      window.__uid = uid;
     })();
 
-    // ---------- Page logic ----------
-    const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
+    const $ = s=>document.querySelector(s);
+    const connectCard = $('#connectCard');
+    const accountCard = $('#accountCard');
+    const orderCard   = $('#orderCard');
+    const resultCard  = $('#resultCard');
 
-    const merchantName = document.getElementById('merchantName');
-    const merchantMeta = document.getElementById('merchantMeta');
-    const connectState = document.getElementById('connectState');
+    const sfApi   = $('#sfApi');
+    const sfSecret= $('#sfSecret');
+    const sfPass  = $('#sfPass');
 
-    const connectCard = document.getElementById('connectCard');
-    const unlockCard  = document.getElementById('unlockCard');
-    const orderCard   = document.getElementById('orderCard');
+    const connectStatus = $('#connectStatus');
+    const unlockStatus  = $('#unlockStatus');
+    const acctBalance   = $('#acctBalance');
 
-    const sfApiKey    = document.getElementById('sfApiKey');
-    const sfSecretKey = document.getElementById('sfSecretKey');
-    const sfPass      = document.getElementById('sfPass');
-    const sfCompany   = document.getElementById('sfCompany');
-    const sfOwner     = document.getElementById('sfOwner');
-    const sfMerchantId= document.getElementById('sfMerchantId');
-    const connectMsg  = document.getElementById('connectMsg');
+    // Fields
+    const msg   = $('#msg');
+    const nameF = $('#name');
+    const phoneF= $('#phone');
+    const addrF = $('#address');
+    const sizeF = $('#size');
+    const pcsF  = $('#pieces');
+    const codF  = $('#cod');
 
-    const btnVerifySave = document.getElementById('btnVerifySave');
-    const btnUnlockSaved= document.getElementById('btnUnlockSaved');
-
-    const unlockPass   = document.getElementById('unlockPass');
-    const btnUnlockGo  = document.getElementById('btnUnlockGo');
-    const btnRelock    = document.getElementById('btnRelock');
-    const unlockMsg    = document.getElementById('unlockMsg');
-
-    const pasteBox = document.getElementById('pasteBox');
-    const btnParse = document.getElementById('btnParse');
-    const fName = document.getElementById('fName');
-    const fPhone= document.getElementById('fPhone');
-    const fAddr = document.getElementById('fAddr');
-    const fSize = document.getElementById('fSize');
-    const fPieces=document.getElementById('fPieces');
-    const fCod  = document.getElementById('fCod');
-    const btnPlace = document.getElementById('btnPlace');
-    const placeMsg = document.getElementById('placeMsg');
-    const resultBox= document.getElementById('resultBox');
-
-    function setHeader(profile){
-      const company = profile?.companyName || 'Orders';
-      const owner   = profile?.ownerName ? ` • ${profile.ownerName}` : '';
-      merchantName.textContent = company;
-      merchantMeta.textContent = `${profile?.merchantId ? ('ID: '+profile.merchantId+' • ') : ''}${uid}${owner}`;
-    }
-
-    async function refreshState(){
-      setHeader(await getSteadfastProfile(uid));
-      const exists = await hasSteadfastKeys(uid);
-      connectState.textContent = exists ? 'Connected (locked)' : 'Not connected';
-      connectCard.style.display = exists ? 'none' : 'block';
-      unlockCard.style.display  = exists ? 'block' : 'none';
-      orderCard.style.display   = 'none';
-      btnRelock.style.display   = 'none';
-      resultBox.textContent = '';
-      placeMsg.textContent = '';
-    }
-
-    await refreshState();
-
-    // Verify & Save
-    btnVerifySave?.addEventListener('click', async ()=>{
-      connectMsg.textContent = '';
+    // Buttons
+    $('#btnVerifySave')?.addEventListener('click', async ()=>{
+      connectStatus.textContent = '';
       try{
-        const apiKey = sfApiKey.value.trim();
-        const secretKey = sfSecretKey.value.trim();
-        const pass = sfPass.value;
-        if(!apiKey || !secretKey || !pass){ connectMsg.textContent='Please enter API Key, Secret Key and a passphrase.'; return; }
-
-        // verify against server
-        connectMsg.textContent = 'Verifying…';
-        const v = await verifySteadfastKeysRaw(apiKey, secretKey);
-
-        // save encrypted + profile (user-provided basic info)
-        await saveSteadfastKeys(uid, pass, { apiKey, secretKey }, {
-          companyName: sfCompany.value,
-          ownerName:   sfOwner.value,
-          merchantId:  sfMerchantId.value
-        });
-        connectMsg.textContent = `Connected ✓ (Balance: ${v?.balance ?? '—'})`;
-        await refreshState();
+        const bal = await verifySteadfastKeys(window.__uid, sfPass.value || '', sfApi.value || '', sfSecret.value || '');
+        connectStatus.innerHTML = '<span class="ok">Connected.</span>';
+        acctBalance.textContent = `Balance ${bal?.current_balance ?? '—'}`;
+        connectCard.style.display = 'none';
+        accountCard.style.display = '';
+        orderCard.style.display = '';
       }catch(err){
+        connectStatus.innerHTML = '<span class="bad">Failed to verify. Check keys & network.</span>';
         console.error(err);
-        connectMsg.textContent = 'Verification failed. Check keys and try again.';
       }
     });
 
-    // Unlock flow
-    btnUnlockSaved?.addEventListener('click', ()=>{
-      // reveal the unlock card directly (if keys exist)
-      connectCard.style.display = 'none';
-      unlockCard.style.display  = 'block';
-    });
-
-    btnUnlockGo?.addEventListener('click', async ()=>{
-      unlockMsg.textContent = '';
+    $('#btnUnlock')?.addEventListener('click', async ()=>{
+      unlockStatus.textContent = '';
       try{
-        const pass = unlockPass.value;
-        if(!pass){ unlockMsg.textContent='Enter your local passphrase.'; return; }
-        // test by calling verify with saved keys
-        unlockMsg.textContent = 'Checking…';
-        await verifySteadfastKeys(uid, pass);
-        unlockMsg.textContent = 'Unlocked ✓';
-        connectState.textContent = 'Connected (unlocked)';
-        orderCard.style.display = 'block';
-        btnRelock.style.display = 'inline-flex';
+        await unlockSteadfastKeys(window.__uid, sfPass.value || '');
+        unlockStatus.innerHTML = '<span class="ok">Unlocked.</span>';
+        // Optionally fetch balance by verifying again silently is tricky without keys exposed here.
+        connectCard.style.display = 'none';
+        accountCard.style.display = '';
+        orderCard.style.display = '';
       }catch(err){
-        console.error(err);
-        unlockMsg.textContent = 'Unlock failed. Wrong passphrase?';
+        unlockStatus.innerHTML = '<span class="bad">Unlock failed (wrong phrase or no keys saved).</span>';
       }
     });
 
-    btnRelock?.addEventListener('click', async ()=>{
+    $('#btnDisconnect')?.addEventListener('click', async ()=>{
+      // Clear saved keys by overwriting with empty (or you can add a delete route)
+      try{
+        await saveSteadfastKeys(window.__uid, (sfPass.value||'temp'), { apiKey:'', secretKey:'' });
+      }catch(_){}
+      connectCard.style.display = '';
+      accountCard.style.display = 'none';
       orderCard.style.display = 'none';
-      unlockCard.style.display= 'block';
-      connectState.textContent = 'Connected (locked)';
-      unlockMsg.textContent = 'Locked.';
-      unlockPass.value = '';
-      resultBox.textContent = '';
-      placeMsg.textContent = '';
     });
 
-    // Parse
-    function doParse(){
-      const o = parseOrderMessage(pasteBox.value || '');
-      fName.value  = o.name || '';
-      fPhone.value = o.phone || '';
-      fAddr.value  = o.address || '';
-      fSize.value  = o.size || '';
-      fPieces.value= o.pieces || '';
-      fCod.value   = o.codAmount || '';
-    }
-    btnParse?.addEventListener('click', doParse);
+    $('#btnRotate')?.addEventListener('click', ()=>{
+      connectCard.style.display = '';
+      accountCard.style.display = 'none';
+      orderCard.style.display = 'none';
+    });
 
-    // Place order
-    btnPlace?.addEventListener('click', async ()=>{
-      placeMsg.textContent = '';
-      resultBox.textContent = '';
-      const pass = unlockPass.value;
-      if(!pass){ placeMsg.textContent='Unlock first (enter passphrase).'; return; }
+    $('#btnLock')?.addEventListener('click', ()=>{
+      connectCard.style.display = '';
+      accountCard.style.display = 'none';
+      orderCard.style.display = 'none';
+    });
 
-      // required fields
-      const name  = fName.value.trim();
-      const phone = fPhone.value.trim();
-      const addr  = fAddr.value.trim();
-      const cod   = Number((fCod.value||'').trim());
-      if(!name || !phone || !addr || !(cod >= 0)){ placeMsg.textContent='Fill Name, Phone, Address, COD.'; return; }
-
-      // map to API fields
-      const invoice = `${uid}-${Date.now().toString(36).toUpperCase()}`;
-      const order = {
-        invoice,
-        recipient_name: name,
-        recipient_phone: phone,
-        recipient_address: addr,
-        cod_amount: cod,
-        note: fSize.value.trim() || undefined,
-        item_description: fSize.value.trim() || undefined,
-        total_lot: fPieces.value ? Number(fPieces.value) : undefined,
-        delivery_type: 0
-      };
-
-      placeMsg.textContent = 'Placing…';
+    // Initialize view (has keys?)
+    (async function init(){
       try{
-        const ans = await placeSteadfastOrder(uid, pass, order);
-        // expected success payload shape per docs
-        const c = ans?.consignment || {};
-        placeMsg.textContent = 'Order placed ✓';
-        resultBox.textContent =
-          `Consignment ID: ${c.consignment_id ?? '—'}\n` +
-          `Tracking Code : ${c.tracking_code ?? '—'}\n` +
-          `Status        : ${c.status ?? ans?.status ?? '—'}`;
+        const has = await hasSteadfastKeys(window.__uid);
+        if (has){
+          // Show unlock
+          connectCard.style.display = '';
+          accountCard.style.display = 'none';
+          orderCard.style.display = 'none';
+        } else {
+          // Ask to connect
+          connectCard.style.display = '';
+          accountCard.style.display = 'none';
+          orderCard.style.display = 'none';
+        }
+      }catch(_){}
+    })();
+
+    // Parsing
+    function doParse(){
+      const o = window.lastParsed = (msg.value ? (awaitOrSync(()=>parseOrderMessage(msg.value))) : null);
+      if (o){
+        if (!nameF.value)  nameF.value  = o.name || '';
+        if (!phoneF.value) phoneF.value = o.phone || '';
+        if (!addrF.value)  addrF.value  = o.address || '';
+        if (!sizeF.value)  sizeF.value  = o.size || '';
+        if (!pcsF.value)   pcsF.value   = o.pieces || '';
+        if (!codF.value)   codF.value   = o.codAmount || '';
+      }
+    }
+    function awaitOrSync(fn){ try{ return fn(); }catch{ return null; } }
+
+    $('#btnParse')?.addEventListener('click', doParse);
+    msg?.addEventListener('input', ()=>{
+      // lightweight auto parse on pause
+      clearTimeout(window.__pT);
+      window.__pT = setTimeout(doParse, 250);
+    });
+
+    // Place Order
+    $('#btnPlace')?.addEventListener('click', async ()=>{
+      $('#placeStatus').textContent = '';
+      try{
+        const invoice = makeInvoice(window.__uid);
+        const order = {
+          invoice,
+          recipient_name:  nameF.value.trim(),
+          recipient_phone: phoneF.value.trim(),
+          recipient_address: addrF.value.trim(),
+          cod_amount: Number(codF.value || 0),
+          item_description: sizeF.value.trim() || undefined,
+          total_lot: pcsF.value ? Number(pcsF.value) : undefined,
+          delivery_type: 0, // 0=home delivery
+          note: 'Pack & Wrap'
+        };
+        if (!order.recipient_name || !order.recipient_phone || !order.recipient_address || !order.cod_amount){
+          $('#placeStatus').innerHTML = '<span class="bad">Name, phone, address, COD are required.</span>';
+          return;
+        }
+        const out = await placeSteadfastOrder(window.__uid, sfPass.value || '', order);
+        $('#resultBox').textContent = JSON.stringify(out, null, 2);
+        resultCard.style.display = '';
+        $('#placeStatus').innerHTML = '<span class="ok">Order placed.</span>';
       }catch(err){
         console.error(err);
-        placeMsg.textContent = 'Failed to place order.';
-        resultBox.textContent = String(err?.message || err);
+        $('#placeStatus').innerHTML = '<span class="bad">Failed to place order.</span>';
       }
     });
 
-    // convenience: parse on first paste
-    pasteBox?.addEventListener('paste', ()=>{
-      setTimeout(doParse, 0);
-    });
   </script>
 </body>
 </html>
