@@ -3,7 +3,9 @@
 // Only /users/{userId} at the top level
 // Signup: creates /users/{userId}
 // Login:  reads /users/{userId} (by ID)
+//
 // + Robust order-message parser & helpers
+// + Encrypted storage for Steadfast API keys (AES-GCM via Web Crypto)
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -27,46 +29,27 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db  = getFirestore(app);
 
-// ---------- Helpers ----------
+// ---------- General helpers ----------
 export async function sha(input){
   const enc = new TextEncoder();
   if (crypto?.subtle?.digest) {
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // Minimal fallback
+  // Minimal fallback (rarely used)
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
   let H0=0x6a09e667,H1=0xbb67ae85,H2=0x3c6ef372,H3=0xa54ff53a,H4=0x510e527f,H5=0x9b05688,H6=0x1f83d9ab,H7=0x5be0cd19;
-  const bytes=[...enc.encode(input)];const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
-  for(let i=0;i<bytes.length;i+=64){const c=bytes.slice(i,i+64);const w=new Array(64);const ws=toWords(c);for(let t=0;t<16;t++)w[t]=ws[t];
+  const enc2 = new TextEncoder(); const bytes=[...enc2.encode(input)];
+  const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
+  function toW(b){const w=[];for(let i=0;i<b.length;i+=4)w.push((b[i]<<24)|(b[i+1]<<16)|(b[i+2]<<8)|b[i+3]);return w;}
+  for(let i=0;i<bytes.length;i+=64){const c=bytes.slice(i,i+64);const w=new Array(64);const ws=toW(c);for(let t=0;t<16;t++)w[t]=ws[t];
     for(let t=16;t<64;t++){const s0=R(7,w[t-15])^R(18,w[t-15])^(w[t-15]>>>3);const s1=R(17,w[t-2])^R(19,w[t-2])^(w[t-2]>>>10);w[t]=(w[t-16]+s0+w[t-7]+s1)|0;}
     let a=H0,b=H1,c2=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
     for(let t=0;t<64;t++){const S1=R(6,e)^R(11,e)^R(25,e);const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[t]+w[t])|0;const S0=R(2,a)^R(13,a)^R(22,a);const maj=(a&b)^(a&c2)^(b&c2);const t2=(S0+maj)|0;h=g;g=f;f=e;e=(d+t1)|0;d=c2;c2=b;b=a;a=(t1+t2)|0;}
     H0=(H0+a)|0;H1=(H1+b)|0;H2=(H2+c2)|0;H3=(H3+d)|0;H4=(H4+e)|0;H5=(H5+f)|0;H6=(H6+g)|0;H7=(H7+h)|0;}
   return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
-}
-
-// --- New: Bangla digits → English
-export function bnToEnDigits(s=""){
-  const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
-  return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
-}
-
-// --- New: Phone normalizer (BD)
-export function normalizeBdPhone(raw=""){
-  const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
-  // keep only last 11 digits if possible
-  let digits = t.replace(/\D/g,'');
-  // common cases: 8801XXXXXXXXX / 01XXXXXXXXX / +8801XXXXXXXXX
-  if (digits.startsWith('8801') && digits.length >= 13) digits = digits.slice(digits.length-11);
-  if (digits.startsWith('01') && digits.length > 11)    digits = digits.slice(0,11);
-  if (digits.length >= 11 && digits.endsWith('01'))     digits = digits.slice(-11);
-  if (digits.length === 11 && digits.startsWith('01'))  return digits;
-  // fallback: try to find any 11-digit 01*********
-  const m = digits.match(/01\d{9}/);
-  return m ? m[0] : t;
 }
 
 const sanitizeId = s => (s||'')
@@ -110,10 +93,42 @@ export async function loginWithNameOrId(identifier, password){
 
   return { ok:true, userId };
 }
+// Back-compat alias for index.html
+export const loginUserById = loginWithNameOrId;
 
-// ========== ORDERS: robust parser ==========
+// ------------- Per-user KV -------------
+export const store = {
+  async setUserKV(userId, key, value){
+    await setDoc(doc(db, "users", userId, "kv", key), { value });
+  },
+  subscribeUserKV(userId, key, cb){
+    return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
+  }
+};
 
-// Utility: pick line content after label (Bangla/English)
+// ===================================================================
+// Orders helpers: robust parser + payload builder
+// ===================================================================
+
+// Bangla → English digits
+export function bnToEnDigits(s=""){
+  const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+  return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
+}
+
+// Phone normalizer (Bangladesh)
+export function normalizeBdPhone(raw=""){
+  const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
+  let digits = t.replace(/\D/g,'');
+  if (digits.startsWith('8801') && digits.length >= 13) digits = digits.slice(digits.length-11);
+  if (digits.startsWith('01') && digits.length > 11)    digits = digits.slice(0,11);
+  if (digits.length >= 11 && digits.endsWith('01'))     digits = digits.slice(-11);
+  if (digits.length === 11 && digits.startsWith('01'))  return digits;
+  const m = digits.match(/01\d{9}/);
+  return m ? m[0] : t;
+}
+
+// Order parsing utilities
 function pickAfter(lines, re){
   for (const ln of lines) {
     const m = ln.match(re);
@@ -121,8 +136,6 @@ function pickAfter(lines, re){
   }
   return '';
 }
-
-// Is likely a "size/spec" line
 function looksLikeSizeLine(ln){
   const L = ln.toLowerCase();
   if (/(?:\d+(?:\.\d+)?)\s*\*\s*(?:\d+(?:\.\d+)?)/.test(L)) return true; // 12*16
@@ -130,15 +143,11 @@ function looksLikeSizeLine(ln){
   if (/\b(?:pcs|pieces|pis|টি)\b/.test(L)) return true;
   return false;
 }
-
-// Is likely a "pieces/quantity" line
 function findPiecesInLine(ln){
   const L = bnToEnDigits(ln.toLowerCase());
   const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/);
   return m ? parseInt(m[2],10) : null;
 }
-
-// Safely evaluate a basic math expression (+ - * / . and spaces)
 function safeEval(expr){
   const cleaned = expr.replace(/[^0-9.+\-*/() ]/g,'');
   try{
@@ -149,34 +158,26 @@ function safeEval(expr){
   return null;
 }
 
-// NEW: Parse order message (labeled OR unlabeled, BN/EN, flexible order)
 export function parseOrderMessage(raw=""){
   const textAll = bnToEnDigits(String(raw).replace(/\r/g,'')).trim();
   const linesRaw = textAll.split('\n').map(s=>s.trim()).filter(Boolean);
-
-  // Normalize "key: value" lines to help matching
   const lines = linesRaw.map(s=>s.replace(/[|]/g,':'));
 
-  // 1) Phone (labeled or unlabeled – anywhere)
+  // Phone
   let phone =
     pickAfter(lines, /(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i) ||
     (textAll.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/)?.[1] ?? '');
   phone = normalizeBdPhone(phone);
 
-  // 2) Name
-  let name =
-    pickAfter(lines, /(?:নাম|name)\s*[:\-]\s*(.+)/i);
-
+  // Name
+  let name = pickAfter(lines, /(?:নাম|name)\s*[:\-]\s*(.+)/i);
   if (!name){
-    // Heuristic: pick the first short, mostly-alpha line that is NOT the phone / not size / not total / not qty
     for (const ln of lines){
       if (ln.includes(phone)) continue;
       if (/(?:total|মোট)/i.test(ln)) continue;
       if (looksLikeSizeLine(ln)) continue;
       if (findPiecesInLine(ln) !== null) continue;
-      // Skip lines starting with numbers (often address or qty)
       if (/^\d/.test(ln)) continue;
-      // Likely name if 1–3 words, mostly letters
       if (/^[a-z\s\u0980-\u09FF.]{2,40}$/i.test(ln) && ln.split(/\s+/).length <= 4){
         name = ln.trim();
         break;
@@ -184,12 +185,9 @@ export function parseOrderMessage(raw=""){
     }
   }
 
-  // 3) Address
-  let address =
-    pickAfter(lines, /(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
-
+  // Address
+  let address = pickAfter(lines, /(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
   if (!address){
-    // Choose the longest non-total non-size non-qty line that has spaces (looks like an address)
     const candidates = lines.filter(ln=>{
       if (/(?:total|মোট)/i.test(ln)) return false;
       if (looksLikeSizeLine(ln)) return false;
@@ -200,26 +198,23 @@ export function parseOrderMessage(raw=""){
     address = candidates.sort((a,b)=>b.length-a.length)[0] || '';
   }
 
-  // 4) Size/spec (collect all lines that look like size/spec)
-  let size =
-    pickAfter(lines, /(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
+  // Size/spec
+  let size = pickAfter(lines, /(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
   if (!size){
     const pack = lines.filter(looksLikeSizeLine).join(', ');
     size = pack || '';
   }
 
-  // 5) Pieces / qty
+  // Pieces
   let piecesStr = pickAfter(lines, /(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
   let pieces = piecesStr ? parseInt(piecesStr, 10) : null;
   if (pieces == null){
-    // Try explicit "xx pcs/pis" line
     for (const ln of lines){
       const n = findPiecesInLine(ln);
       if (n != null){ pieces = n; break; }
     }
   }
   if (pieces == null){
-    // Try to sum explicit quantities in size spec like "12*16 print 10 pis, 14*18 10 pis"
     const qtys = [];
     for (const ln of lines){
       if (!looksLikeSizeLine(ln)) continue;
@@ -230,52 +225,40 @@ export function parseOrderMessage(raw=""){
   }
   if (pieces == null) pieces = '';
 
-  // 6) COD / Total (multi-line + last "=" + expression + next-line number)
+  // COD / Total
   let cod = '';
-  // Find first line that mentions total
   const totalIdx = lines.findIndex(ln => /(?:total|মোট)/i.test(ln));
   if (totalIdx >= 0){
     const totalLine = lines[totalIdx].toLowerCase();
 
-    // Last "= number" on the total line
     const eqMatch = totalLine.match(/= *([0-9][0-9,]*(?:\.[0-9]+)?)(?!.*=)/);
     if (eqMatch) cod = eqMatch[1];
 
-    // If total line ends with "=", look at the next 1–2 lines for a standalone number (e.g., "245 tk")
     if (!cod){
       for (let i=totalIdx+1; i<Math.min(totalIdx+3,lines.length); i++){
         const mm = lines[i].toLowerCase().match(/(^|\s)([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:tk|taka|টাকা)?\b/);
         if (mm){ cod = mm[2]; break; }
       }
     }
-
-    // Otherwise, try first number after ":" or "=" on the total line
     if (!cod){
       const m = totalLine.match(/[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
       if (m) cod = m[1];
     }
-
-    // If still empty, try to evaluate the expression before first "="
     if (!cod){
       const beforeEq = totalLine.split('=')[0];
-      const afterColon = beforeEq.split(':').slice(1).join(':').trim(); // part after "Total:"
+      const afterColon = beforeEq.split(':').slice(1).join(':').trim();
       const val = safeEval(afterColon);
       if (val != null) cod = String(val);
     }
   }
-
-  // Global fallback: last "= number" anywhere in the whole text
   if (!cod){
     const eqLast = textAll.toLowerCase().match(/= *([0-9][0-9,]*(?:\.[0-9]+)?)(?![\s\S]*=)/);
     if (eqLast) cod = eqLast[1];
   }
-  // Fallback: first number after "Total:" anywhere
   if (!cod){
     const m = textAll.toLowerCase().match(/(?:total|মোট)\s*[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
     if (m) cod = m[1];
   }
-
-  // Clean commas and words like "tk/taka/টাকা"
   if (cod) cod = cod.replace(/,/g,'').replace(/\s*(?:tk|taka|টাকা)\b/i,'');
 
   const codAmount = cod ? Number(cod) : '';
@@ -291,7 +274,6 @@ export function parseOrderMessage(raw=""){
   };
 }
 
-// A compact payload we’ll copy to the clipboard for the bookmarklet
 export function buildAutofillPayload(o){
   const clean = (s)=>String(s||'').trim();
   return JSON.stringify({
@@ -304,12 +286,111 @@ export function buildAutofillPayload(o){
   });
 }
 
-// ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
-export const store = {
-  async setUserKV(userId, key, value){
-    await setDoc(doc(db, "users", userId, "kv", key), { value });
-  },
-  subscribeUserKV(userId, key, cb){
-    return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
+// ===================================================================
+// Encrypted Steadfast API key storage (client-side encryption)
+//   - We encrypt with a passphrase (PBKDF2 → AES-GCM).
+//   - Ciphertext is stored at: /users/{userId}/kv/steadfast  { apiKeyEnc, secretKeyEnc, updatedAt }
+//   - You must provide the same passphrase to decrypt later in the session.
+// ===================================================================
+
+// Base64 helpers
+function bufToB64(buf){
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64ToBuf(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+// Derive an AES-GCM key from passphrase + salt
+async function deriveKey(passphrase, salt){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 120000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt","decrypt"]
+  );
+}
+
+async function encryptWithPassphrase(plaintext, passphrase){
+  const enc = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(passphrase, salt);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  return {
+    v: 1,
+    iv: bufToB64(iv),
+    salt: bufToB64(salt),
+    ct: bufToB64(ct)
+  };
+}
+async function decryptWithPassphrase(payload, passphrase){
+  const dec = new TextDecoder();
+  const iv = new Uint8Array(b64ToBuf(payload.iv));
+  const salt = new Uint8Array(b64ToBuf(payload.salt));
+  const key = await deriveKey(passphrase, salt);
+  const ptBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, b64ToBuf(payload.ct));
+  return dec.decode(ptBuf);
+}
+
+/**
+ * Save Steadfast API credentials (encrypted-at-rest).
+ * @param {string} userId
+ * @param {string} apiKey       - plaintext
+ * @param {string} secretKey    - plaintext
+ * @param {string} passphrase   - user-provided encryption passphrase
+ */
+export async function saveSteadfastApi(userId, apiKey, secretKey, passphrase){
+  if (!userId) throw new Error("Missing userId");
+  if (!passphrase) throw new Error("Passphrase required");
+  const apiKeyEnc = await encryptWithPassphrase(String(apiKey||''), passphrase);
+  const secretEnc = await encryptWithPassphrase(String(secretKey||''), passphrase);
+  await setDoc(doc(db, "users", userId, "kv", "steadfast"), {
+    apiKeyEnc: apiKeyEnc,
+    secretKeyEnc: secretEnc,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Load + decrypt Steadfast API credentials.
+ * @param {string} userId
+ * @param {string} passphrase
+ * @returns {Promise<{apiKey:string, secretKey:string} | null>}
+ */
+export async function loadSteadfastApi(userId, passphrase){
+  if (!userId) throw new Error("Missing userId");
+  if (!passphrase) throw new Error("Passphrase required");
+  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast"));
+  if (!snap.exists()) return null;
+  const data = snap.data() || {};
+  try{
+    const apiKey  = await decryptWithPassphrase(data.apiKeyEnc, passphrase);
+    const secretKey = await decryptWithPassphrase(data.secretKeyEnc, passphrase);
+    return { apiKey, secretKey };
+  }catch(e){
+    console.error("Decryption failed", e);
+    throw new Error("Wrong passphrase or corrupted data");
   }
-};
+}
+
+/**
+ * Check whether encrypted keys are saved (without decrypting).
+ * @param {string} userId
+ * @returns {Promise<boolean>}
+ */
+export async function hasSteadfastKeys(userId){
+  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast"));
+  return snap.exists();
+}
