@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/steadfastPlaceOrder", "function": "steadfastPlaceOrder" },
+      { "source": "**", "destination": "/404.html" }
+    ]
+  },
+  "functions": {
+    "source": "functions"
+  }
+}

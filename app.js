@@ -3,9 +3,9 @@
 // Only /users/{userId} at the top level
 // Signup: creates /users/{userId}
 // Login:  reads /users/{userId} (by ID)
-//
 // + Robust order-message parser & helpers
-// + Encrypted storage for Steadfast API keys (AES-GCM via Web Crypto)
+// + Encrypted storage for Steadfast API keys
+// + Client helper to place order via proxy
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -29,27 +29,43 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db  = getFirestore(app);
 
-// ---------- General helpers ----------
+// ---------- Helpers ----------
 export async function sha(input){
   const enc = new TextEncoder();
   if (crypto?.subtle?.digest) {
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  // Minimal fallback (rarely used)
+  // Minimal fallback
   function R(n,x){return(x>>>n)|(x<<(32-n));}
   function toWords(bytes){const w=[];for(let i=0;i<bytes.length;i+=4)w.push((bytes[i]<<24)|(bytes[i+1]<<16)|(bytes[i+2]<<8)|bytes[i+3]);return w;}
   const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
   let H0=0x6a09e667,H1=0xbb67ae85,H2=0x3c6ef372,H3=0xa54ff53a,H4=0x510e527f,H5=0x9b05688,H6=0x1f83d9ab,H7=0x5be0cd19;
-  const enc2 = new TextEncoder(); const bytes=[...enc2.encode(input)];
-  const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
-  function toW(b){const w=[];for(let i=0;i<b.length;i+=4)w.push((b[i]<<24)|(b[i+1]<<16)|(b[i+2]<<8)|b[i+3]);return w;}
-  for(let i=0;i<bytes.length;i+=64){const c=bytes.slice(i,i+64);const w=new Array(64);const ws=toW(c);for(let t=0;t<16;t++)w[t]=ws[t];
+  const bytes=[...enc.encode(input)];const bitLen=bytes.length*8;bytes.push(0x80);while((bytes.length%64)!==56)bytes.push(0);for(let i=7;i>=0;i--)bytes.push((bitLen>>>(i*8))&0xff);
+  for(let i=0;i<bytes.length;i+=64){const c=bytes.slice(i,i+64);const w=new Array(64);const ws=toWords(c);for(let t=0;t<16;t++)w[t]=ws[t];
     for(let t=16;t<64;t++){const s0=R(7,w[t-15])^R(18,w[t-15])^(w[t-15]>>>3);const s1=R(17,w[t-2])^R(19,w[t-2])^(w[t-2]>>>10);w[t]=(w[t-16]+s0+w[t-7]+s1)|0;}
     let a=H0,b=H1,c2=H2,d=H3,e=H4,f=H5,g=H6,h=H7;
     for(let t=0;t<64;t++){const S1=R(6,e)^R(11,e)^R(25,e);const ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[t]+w[t])|0;const S0=R(2,a)^R(13,a)^R(22,a);const maj=(a&b)^(a&c2)^(b&c2);const t2=(S0+maj)|0;h=g;g=f;f=e;e=(d+t1)|0;d=c2;c2=b;b=a;a=(t1+t2)|0;}
     H0=(H0+a)|0;H1=(H1+b)|0;H2=(H2+c2)|0;H3=(H3+d)|0;H4=(H4+e)|0;H5=(H5+f)|0;H6=(H6+g)|0;H7=(H7+h)|0;}
   return [H0,H1,H2,H3,H4,H5,H6,H7].map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+}
+
+// --- Bangla digits → English
+export function bnToEnDigits(s=""){
+  const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+  return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
+}
+
+// --- Phone normalizer (BD)
+export function normalizeBdPhone(raw=""){
+  const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
+  let digits = t.replace(/\D/g,'');
+  if (digits.startsWith('8801') && digits.length >= 13) digits = digits.slice(digits.length-11);
+  if (digits.startsWith('01') && digits.length > 11)    digits = digits.slice(0,11);
+  if (digits.length >= 11 && digits.endsWith('01'))     digits = digits.slice(-11);
+  if (digits.length === 11 && digits.startsWith('01'))  return digits;
+  const m = digits.match(/01\d{9}/);
+  return m ? m[0] : t;
 }
 
 const sanitizeId = s => (s||'')
@@ -62,7 +78,6 @@ export async function addUser(username, password, chosenId){
   if (!usernameLower) throw new Error('Username required');
   if (!userId) throw new Error('User ID required');
 
-  // Availability = does /users/{userId} exist?
   const userRef = doc(db, "users", userId);
   const exists  = (await getDoc(userRef)).exists();
   if (exists) throw new Error("User ID already exists");
@@ -72,8 +87,8 @@ export async function addUser(username, password, chosenId){
 
   await setDoc(userRef, {
     userId,
-    username,                 // as typed/displayed
-    usernameLower,            // for display/reference
+    username,
+    usernameLower,
     passwordHash: passHash,   // demo auth
     createdAt: now
   });
@@ -93,42 +108,12 @@ export async function loginWithNameOrId(identifier, password){
 
   return { ok:true, userId };
 }
-// Back-compat alias for index.html
+
+// Alias for your login page code that imports loginUserById
 export const loginUserById = loginWithNameOrId;
 
-// ------------- Per-user KV -------------
-export const store = {
-  async setUserKV(userId, key, value){
-    await setDoc(doc(db, "users", userId, "kv", key), { value });
-  },
-  subscribeUserKV(userId, key, cb){
-    return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
-  }
-};
+// ========== ORDERS: robust parser ==========
 
-// ===================================================================
-// Orders helpers: robust parser + payload builder
-// ===================================================================
-
-// Bangla → English digits
-export function bnToEnDigits(s=""){
-  const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
-  return String(s).replace(/[০-৯]/g, ch => map[ch] ?? ch);
-}
-
-// Phone normalizer (Bangladesh)
-export function normalizeBdPhone(raw=""){
-  const t = bnToEnDigits(raw).replace(/[^\d+]/g,'');
-  let digits = t.replace(/\D/g,'');
-  if (digits.startsWith('8801') && digits.length >= 13) digits = digits.slice(digits.length-11);
-  if (digits.startsWith('01') && digits.length > 11)    digits = digits.slice(0,11);
-  if (digits.length >= 11 && digits.endsWith('01'))     digits = digits.slice(-11);
-  if (digits.length === 11 && digits.startsWith('01'))  return digits;
-  const m = digits.match(/01\d{9}/);
-  return m ? m[0] : t;
-}
-
-// Order parsing utilities
 function pickAfter(lines, re){
   for (const ln of lines) {
     const m = ln.match(re);
@@ -136,18 +121,21 @@ function pickAfter(lines, re){
   }
   return '';
 }
+
 function looksLikeSizeLine(ln){
   const L = ln.toLowerCase();
   if (/(?:\d+(?:\.\d+)?)\s*\*\s*(?:\d+(?:\.\d+)?)/.test(L)) return true; // 12*16
   if (/(?:print|white|black|color|printed)/.test(L)) return true;
-  if (/\b(?:pcs|pieces|pis|টি)\b/.test(L)) return true;
+  if (/\b(?:pcs|pieces|pis|টি|পিস)\b/.test(L)) return true;
   return false;
 }
+
 function findPiecesInLine(ln){
   const L = bnToEnDigits(ln.toLowerCase());
-  const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/);
+  const m = L.match(/(^|\s)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি|পিস)\b/);
   return m ? parseInt(m[2],10) : null;
 }
+
 function safeEval(expr){
   const cleaned = expr.replace(/[^0-9.+\-*/() ]/g,'');
   try{
@@ -163,13 +151,13 @@ export function parseOrderMessage(raw=""){
   const linesRaw = textAll.split('\n').map(s=>s.trim()).filter(Boolean);
   const lines = linesRaw.map(s=>s.replace(/[|]/g,':'));
 
-  // Phone
+  // phone
   let phone =
     pickAfter(lines, /(?:মোবাইল(?: নাম্বার)?|ফোন|phone|mobile)\s*[:\-]\s*([+()\-0-9\s]+)/i) ||
     (textAll.match(/(?:^|\D)(\+?8?8?0?1[\d\-\s]{8,})(?:\D|$)/)?.[1] ?? '');
   phone = normalizeBdPhone(phone);
 
-  // Name
+  // name
   let name = pickAfter(lines, /(?:নাম|name)\s*[:\-]\s*(.+)/i);
   if (!name){
     for (const ln of lines){
@@ -185,7 +173,7 @@ export function parseOrderMessage(raw=""){
     }
   }
 
-  // Address
+  // address
   let address = pickAfter(lines, /(?:ঠিকানা|address)\s*[:\-]\s*(.+)/i);
   if (!address){
     const candidates = lines.filter(ln=>{
@@ -198,14 +186,14 @@ export function parseOrderMessage(raw=""){
     address = candidates.sort((a,b)=>b.length-a.length)[0] || '';
   }
 
-  // Size/spec
+  // size/spec
   let size = pickAfter(lines, /(?:সাইজ|size)\s*[:\-]\s*(.+)/i);
   if (!size){
     const pack = lines.filter(looksLikeSizeLine).join(', ');
     size = pack || '';
   }
 
-  // Pieces
+  // pieces/qty
   let piecesStr = pickAfter(lines, /(?:কতগুলো(?:\s*নিবেন)?|amount|qty|quantity)\s*[:\-]\s*([0-9]+)/i);
   let pieces = piecesStr ? parseInt(piecesStr, 10) : null;
   if (pieces == null){
@@ -218,14 +206,14 @@ export function parseOrderMessage(raw=""){
     const qtys = [];
     for (const ln of lines){
       if (!looksLikeSizeLine(ln)) continue;
-      const matches = [...bnToEnDigits(ln).matchAll(/(^|\D)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি)\b/gi)];
+      const matches = [...bnToEnDigits(ln).matchAll(/(^|\D)([1-9][0-9]{0,4})\s*(?:pcs|pieces|pis|টি|পিস)\b/gi)];
       for (const m of matches) qtys.push(parseInt(m[2],10));
     }
     if (qtys.length) pieces = qtys.reduce((a,b)=>a+b,0);
   }
   if (pieces == null) pieces = '';
 
-  // COD / Total
+  // total/cod (prefer last = number; handle next-line "245 tk"; evaluate when needed)
   let cod = '';
   const totalIdx = lines.findIndex(ln => /(?:total|মোট)/i.test(ln));
   if (totalIdx >= 0){
@@ -240,10 +228,12 @@ export function parseOrderMessage(raw=""){
         if (mm){ cod = mm[2]; break; }
       }
     }
+
     if (!cod){
       const m = totalLine.match(/[:=]\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
       if (m) cod = m[1];
     }
+
     if (!cod){
       const beforeEq = totalLine.split('=')[0];
       const afterColon = beforeEq.split(':').slice(1).join(':').trim();
@@ -286,111 +276,90 @@ export function buildAutofillPayload(o){
   });
 }
 
-// ===================================================================
-// Encrypted Steadfast API key storage (client-side encryption)
-//   - We encrypt with a passphrase (PBKDF2 → AES-GCM).
-//   - Ciphertext is stored at: /users/{userId}/kv/steadfast  { apiKeyEnc, secretKeyEnc, updatedAt }
-//   - You must provide the same passphrase to decrypt later in the session.
-// ===================================================================
-
-// Base64 helpers
-function bufToB64(buf){
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-function b64ToBuf(b64){
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  return bytes.buffer;
-}
-
-// Derive an AES-GCM key from passphrase + salt
-async function deriveKey(passphrase, salt){
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]
-  );
-  return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 120000, hash: "SHA-256" },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt","decrypt"]
-  );
-}
-
-async function encryptWithPassphrase(plaintext, passphrase){
-  const enc = new TextEncoder();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await deriveKey(passphrase, salt);
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
-  return {
-    v: 1,
-    iv: bufToB64(iv),
-    salt: bufToB64(salt),
-    ct: bufToB64(ct)
-  };
-}
-async function decryptWithPassphrase(payload, passphrase){
-  const dec = new TextDecoder();
-  const iv = new Uint8Array(b64ToBuf(payload.iv));
-  const salt = new Uint8Array(b64ToBuf(payload.salt));
-  const key = await deriveKey(passphrase, salt);
-  const ptBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, b64ToBuf(payload.ct));
-  return dec.decode(ptBuf);
-}
-
-/**
- * Save Steadfast API credentials (encrypted-at-rest).
- * @param {string} userId
- * @param {string} apiKey       - plaintext
- * @param {string} secretKey    - plaintext
- * @param {string} passphrase   - user-provided encryption passphrase
- */
-export async function saveSteadfastApi(userId, apiKey, secretKey, passphrase){
-  if (!userId) throw new Error("Missing userId");
-  if (!passphrase) throw new Error("Passphrase required");
-  const apiKeyEnc = await encryptWithPassphrase(String(apiKey||''), passphrase);
-  const secretEnc = await encryptWithPassphrase(String(secretKey||''), passphrase);
-  await setDoc(doc(db, "users", userId, "kv", "steadfast"), {
-    apiKeyEnc: apiKeyEnc,
-    secretKeyEnc: secretEnc,
-    updatedAt: new Date().toISOString()
-  });
-}
-
-/**
- * Load + decrypt Steadfast API credentials.
- * @param {string} userId
- * @param {string} passphrase
- * @returns {Promise<{apiKey:string, secretKey:string} | null>}
- */
-export async function loadSteadfastApi(userId, passphrase){
-  if (!userId) throw new Error("Missing userId");
-  if (!passphrase) throw new Error("Passphrase required");
-  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast"));
-  if (!snap.exists()) return null;
-  const data = snap.data() || {};
-  try{
-    const apiKey  = await decryptWithPassphrase(data.apiKeyEnc, passphrase);
-    const secretKey = await decryptWithPassphrase(data.secretKeyEnc, passphrase);
-    return { apiKey, secretKey };
-  }catch(e){
-    console.error("Decryption failed", e);
-    throw new Error("Wrong passphrase or corrupted data");
+// ------------- Optional per-user KV (under /users/{userId}/kv/*) -------------
+export const store = {
+  async setUserKV(userId, key, value){
+    await setDoc(doc(db, "users", userId, "kv", key), { value });
+  },
+  subscribeUserKV(userId, key, cb){
+    return onSnapshot(doc(db, "users", userId, "kv", key), snap => cb(snap.exists() ? snap.data().value : undefined));
   }
-}
+};
 
-/**
- * Check whether encrypted keys are saved (without decrypting).
- * @param {string} userId
- * @returns {Promise<boolean>}
- */
-export async function hasSteadfastKeys(userId){
-  const snap = await getDoc(doc(db, "users", userId, "kv", "steadfast"));
-  return snap.exists();
-}
+// ------------- Steadfast secrets (AES-GCM, password-hash derived key) -------------
+function hexToBytes(h){ const a=[]; for(let i=0;i<h.length;i+=2)a.push(parseInt(h.slice(i,i+2),16)); return new Uint8Array(a); }
+function b64u(a){ return btoa(String.fromCharCode(...new Uint8Array(a))); }
+function b64d(s){ return Uint8Array.from(atob(s), c=>c.charCodeAt(0)); }
+
+export const steadfastCrypto = {
+  async deriveKey(passHashHex, saltB64){
+    const salt = saltB64 ? b64d(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+    const keyMaterial = await crypto.subtle.importKey('raw', hexToBytes(passHashHex), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+      { name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' },
+      keyMaterial,
+      { name:'AES-GCM', length:256 },
+      false,
+      ['encrypt','decrypt']
+    );
+    return { key, salt: b64u(salt) };
+  },
+  async enc(passHashHex, plaintext){
+    const {key, salt} = await this.deriveKey(passHashHex);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(plaintext));
+    return { salt, iv: b64u(iv), ct: b64u(ct) };
+  },
+  async dec(passHashHex, salt, iv, ct){
+    const {key} = await this.deriveKey(passHashHex, salt);
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv: b64d(iv)}, key, b64d(ct));
+    return new TextDecoder().decode(pt);
+  }
+};
+
+export const steadfastSecrets = {
+  async save(userId, passHashHex, apiKey, secretKey){
+    const e1 = await steadfastCrypto.enc(passHashHex, apiKey);
+    const e2 = await steadfastCrypto.enc(passHashHex, secretKey);
+    await setDoc(doc(db, "users", userId, "integrations", "steadfast"), {
+      salt: e1.salt,
+      api_iv: e1.iv, api_ct: e1.ct,
+      sec_iv: e2.iv, sec_ct: e2.ct,
+      savedAt: new Date().toISOString()
+    });
+  },
+  async load(userId, passHashHex){
+    const snap = await getDoc(doc(db, "users", userId, "integrations", "steadfast"));
+    if(!snap.exists()) return null;
+    const d = snap.data();
+    try{
+      const apiKey = await steadfastCrypto.dec(passHashHex, d.salt, d.api_iv, d.api_ct);
+      const secretKey = await steadfastCrypto.dec(passHashHex, d.salt, d.sec_iv, d.sec_ct);
+      return { apiKey, secretKey };
+    }catch(e){ return null; }
+  }
+};
+
+// ------------- Small user util -------------
+export const userUtil = {
+  currentId(){ return sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId'); }
+};
+
+// ------------- Steadfast API proxy helper -------------
+export const steadfastApi = {
+  /**
+   * Calls your backend proxy to place an order at Steadfast.
+   * Deploy a serverless endpoint at /api/steadfastPlaceOrder that forwards to:
+   *   POST https://portal.steadfast.com.bd/api/v1/place-order  (or /create_order)
+   */
+  async placeOrder(apiKey, secretKey, order){
+    const res = await fetch('/api/steadfastPlaceOrder', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ apiKey, secretKey, order })
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok) throw new Error(data?.message || 'Failed to create parcel');
+    return data;
+  }
+};

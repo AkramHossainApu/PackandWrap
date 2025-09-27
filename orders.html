@@ -5,54 +5,111 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Pack & Wrap • Orders</title>
   <link rel="stylesheet" href="styles.css"/>
-
   <style>
-    /* Same topbar & tabs UI as your overview page */
+    /* ===== Topbar (same as overview) ===== */
     .topbar{
       position:sticky; top:0; z-index:50;
       backdrop-filter: blur(10px);
       background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
       border-bottom:1px solid var(--border);
     }
-    .brand-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; }
+    .brand-row{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 16px;
+    }
     .brand{
       font-weight:900; letter-spacing:.3px; font-size:18px;
       background:linear-gradient(90deg,#fff,#d8b4fe,#f9a8d4);
       -webkit-background-clip:text; background-clip:text; color:transparent;
       text-shadow:0 2px 8px rgba(0,0,0,.25);
     }
-    .chip{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,.06); }
-    .tabs-wrap{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 8px 10px 8px; }
-    .nav-toggle{ display:none; border:1px solid var(--border); background:rgba(255,255,255,.06); padding:8px 12px; border-radius:10px; cursor:pointer; }
-    .tabs{ display:flex; gap:8px; flex-wrap:wrap; padding:6px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.04); }
-    .tabs a{ text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit; transition:background .15s ease, color .15s ease, transform .15s ease; }
+    .chip{
+      font-size:12px; padding:6px 10px; border-radius:999px;
+      border:1px solid var(--border); background:rgba(255,255,255,.06);
+    }
+    .tabs-wrap{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 8px 10px 8px;
+    }
+    .nav-toggle{
+      display:none; border:1px solid var(--border); background:rgba(255,255,255,.06);
+      padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:6px; border:1px solid var(--border); border-radius:12px;
+      background:rgba(255,255,255,.04);
+    }
+    .tabs a{
+      text-decoration:none; padding:8px 12px; border-radius:10px; color:inherit;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
+    }
     .tabs a:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px); }
-    .tabs a[aria-current="page"]{ background:linear-gradient(90deg,#a78bfa22,#f472b622); border:1px solid var(--border); font-weight:700; }
+    .tabs a[aria-current="page"]{
+      background:linear-gradient(90deg,#a78bfa22,#f472b622);
+      border:1px solid var(--border);
+      font-weight:700;
+    }
     .tabs .btn.ghost{ margin-left:4px; }
     @media (max-width:760px){
       .nav-toggle{ display:inline-block; }
       .tabs{ display:none; width:100%; flex-direction:column; }
       .tabs.show{ display:flex; }
       .tabs a, .tabs .btn.ghost{ width:100%; text-align:left; }
+      .tabs .btn.ghost{ margin-left:0; }
     }
 
-    /* Orders page layout */
-    .page-head{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin:16px 0; }
-    .title-wrap{ display:grid; gap:6px; }
-    .title-wrap h2{ margin:0; font-size:24px; }
-    .title-wrap .sub{ margin:0; color:var(--muted); font-size:13px; }
+    /* ===== Page content ===== */
+    body.bg-grad{ min-height:100vh; }
+    .wrap{ max-width:980px; margin:0 auto; padding:16px; }
+    .page-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0; }
+    .title h2{ margin:0; font-size:22px; }
+    .title .sub{ margin:0; font-size:13px; color:var(--muted); }
 
-    .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media(max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
+    .grid{ display:grid; gap:12px; grid-template-columns: 1.15fr .85fr; }
+    .card{ padding:14px; border-radius:16px; }
+    .section-title{ margin:0 0 8px; font-size:16px; font-weight:700; color:#e7dff1; }
+    .help{ color:var(--muted); font-size:12px; margin:4px 0 10px; }
 
-    textarea#orderMsg{ min-height:260px; width:100%; resize:vertical; }
-    .form .row{ display:grid; grid-template-columns: 160px 1fr; gap:10px; align-items:center; }
-    .form .row input, .form .row textarea{ width:100%; }
-    .help{ font-size:12px; color:var(--muted); }
+    /* API block */
+    .api-row{ display:grid; gap:8px; }
+    .api-row .inputs{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; }
+    .api-row .inputs input{ width:100%; }
+    .api-status{ font-size:12px; color:var(--muted); margin-top:6px; }
+    details.howto{ margin-top:8px; }
+    details.howto summary{ cursor:pointer; color:#c4b5fd; }
 
-    .bookmarklet-block code{
-      user-select: all; display:block; padding:10px; border-radius:10px; border:1px solid var(--border); background:rgba(255,255,255,.04);
-      overflow:auto; font-size:12px;
+    /* Paste + Parse */
+    .paste{ display:grid; gap:8px; }
+    .paste textarea{ width:100%; min-height:180px; resize:vertical; }
+    .row-inline{ display:flex; gap:8px; flex-wrap:wrap; }
+    .row-inline .btn{ padding:8px 12px; border-radius:12px; }
+
+    /* Review form */
+    .formgrid{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; }
+    .formgrid .span2{ grid-column:1/-1; }
+    .field{ display:grid; gap:6px; }
+    .field input, .field textarea{ width:100%; }
+    .items{ display:grid; gap:8px; }
+    .item-row{ display:grid; gap:8px; grid-template-columns: 1fr 120px; align-items:center; }
+    .item-row input{ width:100%; }
+
+    /* Right column: summary */
+    .sumgrid{ display:grid; gap:10px; }
+    .summary{ font-size:14px; }
+    .summary b{ font-weight:800; }
+    .ok{ color:#34d399; }
+    .warn{ color:#fbbf24; }
+    .err{ color:#f87171; }
+    .btn.primary{ background:linear-gradient(90deg,#a78bfa22,#f472b622); }
+    .btn.ghost{ border:1px solid var(--border); background:rgba(255,255,255,.06); }
+    .btn.block{ width:100%; justify-content:center; }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    @media(max-width:860px){
+      .grid{ grid-template-columns: 1fr; }
+      .formgrid{ grid-template-columns:1fr; }
+      .api-row .inputs{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -63,9 +120,8 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Topbar (unchanged UI) -->
+  <!-- ===== Navbar (same as overview) ===== -->
   <header class="topbar">
-    <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
@@ -74,173 +130,325 @@
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
-        <a href="/overview.html"    data-route="overview"   id="tabOverview">Overview</a>
-        <a href="/products.html"    data-route="products"   id="tabProducts">Products</a>
+        <a href="/overview.html"    data-route="overview"    id="tabOverview">Overview</a>
+        <a href="/products.html"    data-route="products"    id="tabProducts">Products</a>
         <a href="/investments.html" data-route="investments" id="tabInvestments">Investments</a>
-        <a href="/sales.html"       data-route="sales"      id="tabSales">Sales</a>
-        <a href="/customers.html"   data-route="customers"  id="tabCustomers">Customers</a>
-        <a href="/boost.html"       data-route="boost"      id="tabBoost">Boost</a>
-        <a href="/backup.html"      data-route="backup"     id="tabBackup">Backup</a>
-        <a href="/orders.html"      data-route="orders"     id="tabOrders" aria-current="page">Orders</a>
+        <a href="/sales.html"       data-route="sales"       id="tabSales">Sales</a>
+        <a href="/customers.html"   data-route="customers"   id="tabCustomers">Customers</a>
+        <a href="/boost.html"       data-route="boost"       id="tabBoost">Boost</a>
+        <a href="/orders.html"      data-route="orders"      id="tabParcels" aria-current="page">Orders</a>
+        <a href="/backup.html"      data-route="backup"      id="tabBackup">Backup</a>
         <a class="btn ghost" href="#" id="logoutBtn">Logout</a>
       </nav>
     </div>
   </header>
 
-  <main class="container">
-    <section class="section">
-      <div class="page-head">
-        <div class="title-wrap">
-          <h2>Orders</h2>
-          <p class="sub">Paste a confirmation message → we’ll detect Name, Phone, Address, Size, Qty &amp; Total.</p>
-        </div>
+  <main class="wrap">
+    <div class="page-head">
+      <div class="title">
+        <h2>Orders (Auto-Parse → Steadfast)</h2>
+        <p class="sub">Paste any confirmation message, fix anything, then send as a parcel to Steadfast.</p>
       </div>
+    </div>
 
-      <div class="grid-2">
-        <!-- LEFT: paste -->
-        <div class="card">
-          <div class="field">
-            <label for="orderMsg">Paste confirmation message</label>
-            <!-- No placeholder (per your request) -->
-            <textarea id="orderMsg"></textarea>
+    <div class="grid">
+      <!-- LEFT -->
+      <section class="card">
+        <h3 class="section-title">Steadfast API</h3>
+        <div class="api-row">
+          <p class="help">Enter your <b>Api-Key</b> and <b>Secret-Key</b> once. We store them encrypted using your Pack&nbsp;&amp;&nbsp;Wrap password.</p>
+          <div class="inputs">
+            <input id="apiKey" type="password" autocomplete="off" />
+            <input id="secretKey" type="password" autocomplete="off" />
           </div>
-          <div class="actions" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-            <button id="btnParse" class="btn primary">Parse</button>
+          <div class="row-inline">
+            <input id="pwUnlock" type="password" placeholder="Your Pack &amp; Wrap password" style="flex:1;min-width:220px;">
+            <button id="btnSaveKeys" class="btn ghost">Save / Unlock Keys</button>
           </div>
-          <p class="help">Bangla/English, labeled or unlabeled, multi-line totals supported.</p>
-        </div>
+          <div id="apiStatus" class="api-status">Not connected</div>
 
-        <!-- RIGHT: review/edit -->
-        <div class="card">
-          <h3 style="margin:0 0 8px;">Review &amp; edit</h3>
-          <div class="form vgap" id="reviewForm">
-            <div class="row"><label>Name</label>     <input id="fName"/></div>
-            <div class="row"><label>Phone</label>    <input id="fPhone"/></div>
-            <div class="row"><label>Address</label>  <textarea id="fAddress" rows="3"></textarea></div>
-            <div class="row"><label>Size / Spec</label><textarea id="fSize" rows="2"></textarea></div>
-            <div class="row"><label>Pieces</label>   <input id="fPieces"   type="number" inputmode="numeric" min="1"/></div>
-            <div class="row"><label>Total (COD)</label><input id="fTotal"  type="number" inputmode="decimal"/></div>
-          </div>
-
-          <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            <button id="btnCopyPayload" class="btn">Copy Autofill payload</button>
-            <a id="btnOpenSteadfast" class="btn ghost" href="https://www.steadfast.com.bd/user/add-parcel/regular" target="_blank" rel="noopener">Open Steadfast</a>
-          </div>
-
-          <div class="bookmarklet-block" style="margin-top:12px;">
-            <div class="help" style="margin-bottom:6px;">After opening Steadfast, click the bookmarklet below to fill the form automatically (reads the payload you copied):</div>
-            <code id="bmCode"></code>
-            <div class="actions" style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-              <button id="btnCopyBM" class="btn">Copy Bookmarklet code</button>
-              <span class="help">Create a browser bookmark and paste this code into the URL field.</span>
+          <details class="howto">
+            <summary>How to get your API keys</summary>
+            <div class="help">
+              Login → Menu → <b>More</b> → <b>API</b> → create a new API key &amp; secret. Paste them above. We’ll use
+              <code>invoice</code>, <code>recipient_name</code>, <code>recipient_phone</code>, <code>recipient_address</code>, <code>cod_amount</code>, <code>note</code>.
             </div>
+          </details>
+        </div>
+
+        <hr style="border-color:var(--border); margin:14px 0;"/>
+
+        <h3 class="section-title">Paste Confirmation Message</h3>
+        <div class="paste">
+          <textarea id="msgInput" aria-label="Order confirmation message"></textarea>
+          <div class="row-inline">
+            <button id="btnParse" class="btn primary">Parse Message</button>
+            <button id="btnClear" class="btn ghost">Clear</button>
           </div>
         </div>
-      </div>
-    </section>
+
+        <hr style="border-color:var(--border); margin:14px 0;"/>
+
+        <h3 class="section-title">Review &amp; Edit</h3>
+        <form id="editForm" class="formgrid">
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" autocomplete="name"/>
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input id="phone" autocomplete="tel"/>
+          </div>
+          <div class="field span2">
+            <label for="address">Full Address</label>
+            <textarea id="address" rows="3"></textarea>
+          </div>
+
+          <div class="field span2">
+            <label>Items (size/variant + qty)</label>
+            <div id="items" class="items"></div>
+            <button id="btnAddItem" type="button" class="btn ghost" style="margin-top:6px;">＋ Add item</button>
+          </div>
+
+          <div class="field">
+            <label for="qty">Total Quantity</label>
+            <input id="qty" type="number" inputmode="numeric"/>
+          </div>
+          <div class="field">
+            <label for="total">Total (TK)</label>
+            <input id="total" type="number" step="0.01" inputmode="decimal"/>
+          </div>
+
+          <div class="field span2">
+            <label for="note">Note (optional)</label>
+            <input id="note" />
+          </div>
+
+          <div class="field span2">
+            <button id="btnSend" class="btn primary block" type="submit">Send to Steadfast</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- RIGHT -->
+      <aside class="card">
+        <h3 class="section-title">Preview</h3>
+        <div id="preview" class="sumgrid">
+          <div class="summary"><b>Name:</b> —</div>
+          <div class="summary"><b>Phone:</b> —</div>
+          <div class="summary"><b>Address:</b> —</div>
+          <div class="summary"><b>Items:</b><br><span class="muted">—</span></div>
+          <div class="summary"><b>Qty:</b> —</div>
+          <div class="summary"><b>Total:</b> —</div>
+          <hr style="border-color:var(--border);"/>
+          <div class="summary muted">Invoice will be generated automatically.</div>
+          <div id="sendStatus" class="summary"></div>
+        </div>
+      </aside>
+    </div>
   </main>
 
-  <!-- app.js exports the parsing helpers used below -->
   <script type="module">
-    import { parseOrderMessage, buildAutofillPayload } from './app.js';
+    import {
+      db, sha, steadfastSecrets, steadfastApi, userUtil,
+      parseOrderMessage
+    } from './app.js';
 
-    // ---------- Auth & pretty URLs (unchanged behavior) ----------
+    // ---------- Auth + navbar pretty links ----------
     (function(){
       const authed = (sessionStorage.getItem('pw_authed') === '1') || (localStorage.getItem('pw_authed') === '1');
       const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
-      if(!authed || !uid){
-        history.replaceState({}, '', '/login');
-        location.replace('index.html');
-        return;
-      }
+      if(!authed || !uid){ history.replaceState({}, '', '/login'); location.replace('/index.html'); return; }
+
+      // Pretty URL for this page
       const want = `/${encodeURIComponent(uid)}/orders`;
       if (location.pathname !== want) history.replaceState({}, '', want);
 
+      // Hook tabs to keep pretty URLs AND navigate to actual files
       const nav = document.getElementById('mainTabs');
-      nav?.querySelectorAll('a[data-route]').forEach(a=>{
-        const route = a.getAttribute('data-route');
-        a.setAttribute('href', `/${route}.html`);
-        a.addEventListener('click', (e)=>{
-          if (a.id === 'logoutBtn') return;
-          e.preventDefault();
-          history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
-          location.assign(`/${route}.html`);
+      if (nav) {
+        nav.querySelectorAll('a[data-route]').forEach(a=>{
+          const route = a.getAttribute('data-route');
+          a.setAttribute('href', `/${route}.html`);
+          a.addEventListener('click', function(e){
+            if (a.id === 'logoutBtn') return;
+            e.preventDefault();
+            history.replaceState({}, '', `/${encodeURIComponent(uid)}/${route}`);
+            location.assign(`/${route}.html`);
+          });
         });
-      });
-
-      // Mobile nav toggle
-      document.getElementById('navToggle')?.addEventListener('click', ()=>{
-        document.getElementById('mainTabs')?.classList.toggle('show');
-      });
-
-      // Logout
-      document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
-        e.preventDefault();
-        sessionStorage.removeItem('pw_authed');
-        sessionStorage.removeItem('pw_userId');
-        localStorage.removeItem('pw_authed');
-        localStorage.removeItem('pw_userId');
-        history.replaceState({}, '', '/login');
-        location.replace('index.html');
-      });
+      }
     })();
 
-    const el = id => document.getElementById(id);
-    const msg = el('orderMsg');
-    const f = {
-      name: el('fName'),
-      phone: el('fPhone'),
-      address: el('fAddress'),
-      size: el('fSize'),
-      pieces: el('fPieces'),
-      total: el('fTotal'),
-    };
+    // ---------- Mobile nav toggle ----------
+    (function(){
+      const tgl = document.getElementById('navToggle');
+      const tabs = document.getElementById('mainTabs');
+      if (!tgl || !tabs) return;
+      tgl.addEventListener('click', ()=> tabs.classList.toggle('show'));
+    })();
 
-    function fillForm(data){
-      f.name.value    = data.name || '';
-      f.phone.value   = data.phone || '';
-      f.address.value = data.address || '';
-      f.size.value    = data.size || '';
-      f.pieces.value  = data.pieces || '';
-      f.total.value   = data.codAmount || '';
-    }
-
-    // Parse button
-    el('btnParse')?.addEventListener('click', ()=>{
-      const data = parseOrderMessage(msg.value || '');
-      fillForm(data);
+    // ---------- Logout ----------
+    document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      sessionStorage.removeItem('pw_authed');
+      sessionStorage.removeItem('pw_userId');
+      localStorage.removeItem('pw_authed');
+      localStorage.removeItem('pw_userId');
+      history.replaceState({}, '', '/login');
+      location.replace('/index.html');
     });
 
-    // Copy payload for the bookmarklet (adds productDetail too)
-    el('btnCopyPayload')?.addEventListener('click', async ()=>{
-      let base = {};
-      try{
-        base = JSON.parse(buildAutofillPayload({
-          name: f.name.value, phone: f.phone.value, address: f.address.value,
-          size: f.size.value, pieces: f.pieces.value, codAmount: f.total.value
-        }));
-      }catch{ base = {}; }
+    // ---------- DOM refs ----------
+    const apiKeyEl = document.getElementById('apiKey');
+    const secretEl = document.getElementById('secretKey');
+    const pwUnlock = document.getElementById('pwUnlock');
+    const apiStatus = document.getElementById('apiStatus');
 
-      const pcsTxt = (f.pieces.value ? ` (${f.pieces.value} pcs)` : '');
-      base.productDetail = `${f.size.value || ''}${pcsTxt}`.trim();
+    const txt = document.getElementById('msgInput');
+    const btnParse = document.getElementById('btnParse');
+    const btnClear = document.getElementById('btnClear');
 
-      const payload = JSON.stringify(base);
-      try{
-        await navigator.clipboard.writeText(payload);
-        el('btnCopyPayload').textContent = 'Copied ✓';
-        setTimeout(()=> el('btnCopyPayload').textContent = 'Copy Autofill payload', 1200);
-      }catch(_){
-        alert('Could not copy to clipboard. Please copy manually:\n\n' + payload);
+    const form = document.getElementById('editForm');
+    const nameEl = document.getElementById('name');
+    const phoneEl= document.getElementById('phone');
+    const addrEl = document.getElementById('address');
+    const qtyEl  = document.getElementById('qty');
+    const totalEl= document.getElementById('total');
+    const noteEl = document.getElementById('note');
+    const itemsWrap = document.getElementById('items');
+    const btnAddItem= document.getElementById('btnAddItem');
+
+    const prev = document.getElementById('preview');
+    const sendStatus = document.getElementById('sendStatus');
+
+    const uid = userUtil.currentId();
+
+    function renderItems(items){
+      itemsWrap.innerHTML = '';
+      (items||[]).forEach((it, idx)=>{
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = `
+          <input data-idx="${idx}" data-k="label" value="${it.label || ''}"/>
+          <input data-idx="${idx}" data-k="qty"   type="number" inputmode="numeric" value="${it.qty || it.pieces || 0}"/>
+        `;
+        itemsWrap.appendChild(row);
+      });
+    }
+
+    function readItems(){
+      const rows = [...itemsWrap.querySelectorAll('input')];
+      const grouped = {};
+      rows.forEach(inp=>{
+        const i = Number(inp.dataset.idx);
+        const k = inp.dataset.k;
+        grouped[i] = grouped[i] || { label:'', qty:0 };
+        if (k==='label') grouped[i].label = inp.value;
+        else grouped[i].qty = Number(inp.value||0);
+      });
+      return Object.values(grouped);
+    }
+
+    function updatePreview(){
+      const items = readItems();
+      const list = items.length ? items.map(it=>`${it.label} — ${it.qty}`).join('<br>') : '—';
+      prev.children[0].innerHTML = `<b>Name:</b> ${nameEl.value||'—'}`;
+      prev.children[1].innerHTML = `<b>Phone:</b> ${phoneEl.value||'—'}`;
+      prev.children[2].innerHTML = `<b>Address:</b> ${addrEl.value||'—'}`;
+      prev.children[3].innerHTML = `<b>Items:</b><br>${list||'—'}`;
+      prev.children[4].innerHTML = `<b>Qty:</b> ${qtyEl.value||'—'}`;
+      prev.children[5].innerHTML = `<b>Total:</b> ${totalEl.value||'—'} TK`;
+    }
+
+    function addBlankItem(){
+      const curr = readItems();
+      curr.push({label:'', qty:0});
+      renderItems(curr);
+      updatePreview();
+    }
+
+    // ---------- Save/Unlock keys ----------
+    async function tryLoadKeys(){
+      apiStatus.textContent = 'Checking saved keys...';
+      const pw = pwUnlock.value;
+      if (!pw){ apiStatus.textContent = 'Enter password then click “Save / Unlock Keys”.'; return; }
+      const passHash = await sha(pw);
+      const res = await steadfastSecrets.load(uid, passHash);
+      if (res && res.apiKey && res.secretKey){
+        apiKeyEl.value = res.apiKey;
+        secretEl.value = res.secretKey;
+        apiStatus.innerHTML = '<span class="ok">Connected (keys unlocked)</span>';
+      } else {
+        apiStatus.textContent = 'No saved keys yet (or wrong password).';
+      }
+    }
+
+    document.getElementById('btnSaveKeys').addEventListener('click', async ()=>{
+      const pw = pwUnlock.value;
+      if (!pw){ apiStatus.innerHTML = '<span class="warn">Enter your Pack & Wrap password to lock/unlock keys.</span>'; return; }
+      const passHash = await sha(pw);
+      if (apiKeyEl.value && secretEl.value){
+        await steadfastSecrets.save(uid, passHash, apiKeyEl.value.trim(), secretEl.value.trim());
+        apiStatus.innerHTML = '<span class="ok">Keys saved (encrypted).</span>';
+      } else {
+        await tryLoadKeys();
       }
     });
 
-    // Bookmarklet code (fills Steadfast fields heuristically)
-    const bm =
-`javascript:(()=>{async function readClip(){try{return await navigator.clipboard.readText()}catch(e){return prompt('Paste payload (JSON):')||''}}function pick(els,keys){keys=keys.map(k=>k.toLowerCase());for(const el of els){const type=(el.type||'').toLowerCase();const tag=(el.tagName||'').toLowerCase();const ph=(el.getAttribute('placeholder')||'').toLowerCase();const name=(el.getAttribute('name')||'').toLowerCase();const id=(el.id||'').toLowerCase();const lbl=document.querySelector('label[for=\"'+el.id+'\"]');const labtxt=(lbl?lbl.textContent:'').toLowerCase();const near=el.closest('div,td,th,li,section,fieldset');const nearTxt=(near?near.textContent:'').toLowerCase();const hay=[ph,name,id,labtxt,nearTxt].join('|');if(keys.some(k=>hay.includes(k))){if(tag==='input'&&(type==='submit'||type==='button'||type==='checkbox'||type==='radio')) continue;return el}}return null}function setVal(el,val){if(!el) return;el.focus();if(el.tagName==='SELECT'){for(const o of el.options){if((o.value||'').toLowerCase()===String(val).toLowerCase()||o.textContent.toLowerCase().includes(String(val).toLowerCase())){el.value=o.value;break}}}else{el.value=val}el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}async function run(){let t=await readClip();if(!t){alert('No payload provided.');return}let d={};try{d=JSON.parse(t)}catch(e){alert('Invalid payload JSON.');return}const all=[...document.querySelectorAll('input,textarea,select')];const nameEl = pick(all,['name','customer name','receiver','recipient','customer','নাম']);const phoneEl= pick(all,['phone','mobile','customer mobile','receiver mobile','মোবাইল','ফোন']);const addrEl = pick(all,['address','delivery address','customer address','receiver address','ঠিকানা']);const codEl  = pick(all,['cod','cod amount','cash','collection','amount','total','টাকা']);const prodEl = pick(all,['product','details','product details','product brief','item','parcel','description']);setVal(nameEl,d.name||'');setVal(phoneEl,d.phone||'');setVal(addrEl,d.address||'');setVal(codEl,d.codAmount||'');setVal(prodEl,d.productDetail||d.size||'');alert('Filled name/phone/address/amount/product. Please review and submit.')}run()})()`;
-    el('bmCode').textContent = bm;
-    el('btnCopyBM')?.addEventListener('click', async ()=>{
-      try{ await navigator.clipboard.writeText(bm); el('btnCopyBM').textContent='Copied ✓'; setTimeout(()=> el('btnCopyBM').textContent='Copy Bookmarklet code', 1200); }
-      catch(_){ alert('Copy failed. Select the code block and copy it manually.'); }
+    // ---------- Parse / Clear ----------
+    btnParse.addEventListener('click', ()=>{
+      const parsed = parseOrderMessage(txt.value);
+      nameEl.value  = parsed.name || '';
+      phoneEl.value = parsed.phone || '';
+      addrEl.value  = parsed.address || '';
+      qtyEl.value   = parsed.pieces || '';
+      totalEl.value = parsed.codAmount || '';
+      noteEl.value  = parsed.size ? `Sizes: ${parsed.size}` : '';
+      renderItems((parsed.size && parsed.pieces) ? [{label:parsed.size, qty:parsed.pieces}] : []);
+      updatePreview();
+      sendStatus.textContent = '';
+    });
+    btnClear.addEventListener('click', ()=>{ txt.value=''; });
+
+    btnAddItem.addEventListener('click', addBlankItem);
+    [nameEl,phoneEl,addrEl,qtyEl,totalEl,noteEl].forEach(el=>el.addEventListener('input', updatePreview));
+    itemsWrap.addEventListener('input', updatePreview);
+
+    // ---------- Send to Steadfast ----------
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      sendStatus.textContent = '';
+
+      const apiKey = (apiKeyEl.value||'').trim();
+      const secret = (secretEl.value||'').trim();
+      if (!apiKey || !secret){ sendStatus.innerHTML = '<span class="err">Add/unlock your API keys first.</span>'; return; }
+
+      const name = nameEl.value.trim();
+      const phone= phoneEl.value.trim();
+      const addr = addrEl.value.trim();
+      const cod  = Number(totalEl.value||0);
+      if (!name || !phone || !addr || !cod){ sendStatus.innerHTML = '<span class="err">Name, phone, address, and total are required.</span>'; return; }
+
+      const items = readItems();
+      const note  = (noteEl.value||'') || (items.length ? items.map(i=>`${i.label} x ${i.qty}`).join(', ') : '');
+
+      const payload = {
+        invoice: `PW-${Date.now()}`,
+        recipient_name: name,
+        recipient_phone: phone,
+        recipient_address: addr,
+        cod_amount: cod,
+        note
+      };
+
+      try{
+        const data = await steadfastApi.placeOrder(apiKey, secret, payload);
+        sendStatus.innerHTML = `<span class="ok">Order sent ✅</span><br><span class="muted">Response:</span><br><code>${JSON.stringify(data).slice(0,800)}</code>`;
+      } catch(err){
+        console.error(err);
+        sendStatus.innerHTML = `<span class="err">Error:</span> ${err.message}`;
+      }
     });
   </script>
 </body>
