@@ -3,7 +3,8 @@
 // - Auth (username == userId)
 // - Robust order-message parsing (BN/EN, labeled/unlabeled)
 // - Secure (encrypted) storage for Steadfast API keys in Firestore
-// - Place order via serverless proxy: /api/steadfastPlaceOrder
+// - Verify keys & Place order via serverless proxies:
+//     /api/steadfastVerify  and  /api/steadfastPlaceOrder
 // ================================
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -106,7 +107,6 @@ export async function loginWithNameOrId(identifier, password){
 
 // ====== ORDER PARSER ======
 
-// Tiny helpers
 function pickAfter(lines, re){
   for (const ln of lines) { const m = ln.match(re); if (m && m[1]) return m[1].trim(); }
   return '';
@@ -312,13 +312,34 @@ export async function getSteadfastProfile(userId){
   return snap.exists() ? snap.data() : {};
 }
 
-// ====== PROXY CALL to place order ======
-const PROXY = '/api/steadfastPlaceOrder'; // Hosting rewrite → Cloud Function
+// ====== PROXY CALLS ======
+const PROXY_VERIFY = '/api/steadfastVerify';
+const PROXY_ORDER  = '/api/steadfastPlaceOrder';
 
+// Verify (calls GET /get_balance on server)
+export async function verifySteadfastKeysRaw(apiKey, secretKey){
+  const res = await fetch(PROXY_VERIFY, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ apiKey, secretKey })
+  });
+  const txt = await res.text();
+  let json; try{ json = JSON.parse(txt); }catch(_){ json = { raw: txt }; }
+  if (!res.ok || !json.ok) throw new Error(json?.message || 'Verification failed');
+  return json; // { ok:true, balance: ... }
+}
+
+// Verify using saved keys (needs passphrase), returns { ok, balance }
+export async function verifySteadfastKeys(userId, passphrase){
+  const keys = await unlockSteadfastKeys(userId, passphrase);
+  return verifySteadfastKeysRaw(keys.apiKey, keys.secretKey);
+}
+
+// Place order
 export async function placeSteadfastOrder(userId, passphrase, order){
   const keys = await unlockSteadfastKeys(userId, passphrase);
   const body = JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey, order });
-  const res  = await fetch(PROXY, { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  const res  = await fetch(PROXY_ORDER, { method:'POST', headers:{'Content-Type':'application/json'}, body });
   const txt  = await res.text();
   let json; try{ json = JSON.parse(txt); }catch(_){ json = { raw: txt }; }
   if (!res.ok) throw new Error(json?.message || 'Steadfast error');

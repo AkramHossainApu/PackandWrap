@@ -3,20 +3,9 @@
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
-      {
-        "source": "/api/steadfastPlaceOrder",
-        "function": { "functionId": "steadfastPlaceOrder", "region": "us-central1" }
-      },
-
-      { "source": "/:userId/overview",    "destination": "/overview.html" },
-      { "source": "/:userId/products",    "destination": "/products.html" },
-      { "source": "/:userId/investments", "destination": "/investments.html" },
-      { "source": "/:userId/sales",       "destination": "/sales.html" },
-      { "source": "/:userId/customers",   "destination": "/customers.html" },
-      { "source": "/:userId/boost",       "destination": "/boost.html" },
-      { "source": "/:userId/orders",      "destination": "/orders.html" },
-      { "source": "/:userId/backup",      "destination": "/backup.html" }
-
+      { "source": "/api/steadfastPlaceOrder", "function": "steadfastPlaceOrder" },
+      { "source": "/api/steadfastVerify",     "function": "steadfastVerify"     },
+      { "source": "**", "destination": "/404.html" }
     ]
   },
   "functions": {
