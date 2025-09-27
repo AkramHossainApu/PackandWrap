@@ -6,30 +6,22 @@
   <title>Pack & Wrap • Orders</title>
   <link rel="stylesheet" href="styles.css"/>
   <style>
-    /* Compact, responsive layout for Orders */
-    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
-    .hgroup { display:grid; gap:6px; margin:14px 0; }
-    .hgroup h2 { margin:0; font-size:22px; }
-    .hgroup .sub { margin:0; color:var(--muted); font-size:13px; }
-
-    .grid { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
-    @media (max-width:840px){ .grid{ grid-template-columns:1fr; } }
-
-    .card.pad { padding:14px; }
-    .row { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
-    .row .full { grid-column: 1 / -1; }
-    @media (max-width:620px){ .row{ grid-template-columns:1fr; } }
-
-    textarea.input { min-height: 140px; resize: vertical; }
-
-    .ok { color:#34d399; font-weight:600; }
-    .bad { color:#f87171; font-weight:600; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; }
-
-    .btn-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .sep{ height:1px; background:var(--border); margin:10px 0; }
+    /* Page polish */
+    .wrap{ display:grid; gap:12px; }
+    .grid{ display:grid; gap:12px; grid-template-columns: 1.2fr .8fr; }
+    @media(max-width:920px){ .grid{ grid-template-columns:1fr; } }
+    .card{ padding:14px; border-radius:16px; }
+    .h{ margin:0 0 8px; font-size:16px; letter-spacing:.2px; color:#e7dff1; }
+    .row{ display:grid; gap:8px; grid-template-columns:1fr 1fr; }
+    .row > *{ min-width:0; }
+    @media(max-width:640px){ .row{ grid-template-columns:1fr; } }
+    textarea{ min-height:140px; resize:vertical; }
     .muted{ color:var(--muted); font-size:12px; }
-    .pill{ padding:4px 8px; border:1px solid var(--border); border-radius:999px; font-size:12px; background:rgba(255,255,255,.04); }
+    .badge{ font-size:12px; padding:4px 8px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.06); }
+    .ok{ color:#22c55e; }
+    .err{ color:#ef4444; }
+    .inline{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
   </style>
 </head>
 
@@ -39,13 +31,12 @@
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
 
-  <!-- Navbar (same as overview, with Orders tab) -->
+  <!-- NAVBAR (as requested) -->
   <header class="topbar">
     <div class="brand-row">
       <span class="brand">Pack &amp; Wrap</span>
       <span class="chip" id="overallProfitChip">Overall 0 TK</span>
     </div>
-
     <div class="tabs-wrap">
       <button id="navToggle" class="nav-toggle" type="button">☰ Menu</button>
       <nav class="tabs" id="mainTabs">
@@ -63,101 +54,121 @@
   </header>
 
   <main class="container">
-    <div class="wrap">
-      <div class="hgroup">
-        <h2>Orders</h2>
-        <p class="sub">Connect Steadfast once, then paste a confirmation message to auto-fill and place the parcel.</p>
-      </div>
-
-      <!-- CONNECT / VERIFY -->
-      <section class="card pad" id="connectCard">
-        <h3 style="margin-top:0">Connect Steadfast</h3>
-        <p class="muted">Log in to the Steadfast merchant panel → <strong>More</strong> → <strong>API</strong> → create a new key, then paste below. We’ll verify via <span class="mono">/get_balance</span> and store them encrypted.</p>
-        <div class="row" style="margin-top:10px">
-          <label class="full">API Key
-            <input id="sfApi" class="input" autocomplete="off"/>
-          </label>
-          <label class="full">Secret Key
-            <input id="sfSecret" class="input" autocomplete="off"/>
-          </label>
-          <label class="full">Unlock phrase (for local encryption)
-            <input id="sfPass" class="input" autocomplete="new-password"/>
-          </label>
+    <section class="section wrap">
+      <!-- Connect / Status -->
+      <div class="card" id="connectCard">
+        <h3 class="h">Connect to Steadfast</h3>
+        <p class="muted">Create API keys in your Steadfast dashboard: after login open <em>More ▸ API</em>, create a new key, then paste <strong>Api-Key</strong> and <strong>Secret-Key</strong> below. We encrypt & store them per-user.</p>
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label>Api-Key</label>
+            <input id="sfApiKey" type="text" autocomplete="off"/>
+          </div>
+          <div>
+            <label>Secret-Key</label>
+            <input id="sfSecretKey" type="password" autocomplete="new-password"/>
+          </div>
+          <div>
+            <label>Protect with a password (to encrypt your keys)</label>
+            <input id="sfPassphrase" type="password" autocomplete="new-password"/>
+          </div>
+          <div>
+            <label>Company (optional)</label>
+            <input id="sfCompany" type="text" autocomplete="organization"/>
+          </div>
+          <div>
+            <label>Owner name (optional)</label>
+            <input id="sfOwner" type="text" autocomplete="name"/>
+          </div>
+          <div>
+            <label>Merchant ID (optional)</label>
+            <input id="sfMerchant" type="text" autocomplete="off"/>
+          </div>
         </div>
-        <div class="btn-row" style="margin-top:8px">
-          <button id="btnVerifySave" class="btn primary">Verify &amp; Save</button>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn primary" id="btnSaveVerify">Save &amp; Verify</button>
           <span id="connectStatus" class="muted"></span>
         </div>
-        <div class="sep"></div>
-        <div class="muted">Already saved? Enter your unlock phrase and press <em>Unlock</em>.</div>
-        <div class="btn-row" style="margin-top:8px">
-          <button id="btnUnlock" class="btn">Unlock</button>
-          <button id="btnDisconnect" class="btn ghost">Disconnect</button>
-          <span id="unlockStatus" class="muted"></span>
-        </div>
-      </section>
+      </div>
 
-      <!-- ACCOUNT (after verified/unlocked) -->
-      <section class="card pad" id="accountCard" style="display:none">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-          <div>
-            <div style="font-weight:800;">Steadfast Account</div>
-            <div class="muted">Verified via <span class="mono">/get_balance</span>. <span id="acctBalance" class="pill">Balance —</span></div>
+      <!-- Connected summary -->
+      <div class="card" id="statusCard" style="display:none;">
+        <div class="inline">
+          <h3 class="h" style="margin:0;">Steadfast</h3>
+          <span class="badge ok" id="statusBadge">Connected</span>
+          <span id="balance" class="muted">—</span>
+        </div>
+        <div id="merchantInfo" class="muted" style="margin-top:6px;"></div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn" id="btnUnlock">Unlock keys to place orders</button>
+          <button class="btn ghost" id="btnDisconnect">Disconnect</button>
+        </div>
+      </div>
+
+      <!-- Order composer -->
+      <div class="grid">
+        <div class="card">
+          <h3 class="h">Paste Confirmation Message</h3>
+          <textarea id="orderPaste" spellcheck="false"></textarea>
+          <div class="muted" style="margin-top:6px;">We’ll auto-detect name, phone, address, size &amp; quantity. Edit anything below before placing the order.</div>
+        </div>
+        <div class="card">
+          <h3 class="h">Review &amp; Confirm</h3>
+          <div class="row">
+            <div>
+              <label>Recipient Name</label>
+              <input id="fName" type="text"/>
+            </div>
+            <div>
+              <label>Phone</label>
+              <input id="fPhone" type="text"/>
+            </div>
+            <div>
+              <label>Address</label>
+              <input id="fAddr" type="text"/>
+            </div>
+            <div>
+              <label>Size / Item</label>
+              <input id="fSize" type="text"/>
+            </div>
+            <div>
+              <label>Total Lot (pcs)</label>
+              <input id="fPieces" type="number" inputmode="numeric" min="0"/>
+            </div>
+            <div>
+              <label>COD Amount (BDT)</label>
+              <input id="fCod" type="number" inputmode="decimal" min="0" step="0.01"/>
+            </div>
           </div>
-          <div class="btn-row">
-            <button id="btnRotate" class="btn">Update Keys</button>
-            <button id="btnLock" class="btn ghost">Lock</button>
+          <div class="row" style="margin-top:8px;">
+            <div>
+              <label>Invoice (unique)</label>
+              <input id="fInvoice" type="text"/>
+            </div>
+            <div>
+              <label>Note (optional)</label>
+              <input id="fNote" type="text" value="Order via Pack & Wrap"/>
+            </div>
+          </div>
+          <div class="actions" style="margin-top:10px;">
+            <button class="btn primary" id="btnPlace" disabled>Place Order</button>
+            <span id="placeStatus" class="muted"></span>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- PASTE & PARSE -->
-      <section class="card pad" id="orderCard" style="display:none">
-        <h3 style="margin-top:0">Paste Confirmation Message</h3>
-        <label class="full">
-          <textarea id="msg" class="input mono" aria-label="Paste order confirmation message here"></textarea>
-        </label>
-
-        <div class="row" style="margin-top:12px">
-          <label>Name
-            <input id="name" class="input"/>
-          </label>
-          <label>Phone
-            <input id="phone" class="input"/>
-          </label>
-          <label class="full">Address
-            <input id="address" class="input"/>
-          </label>
-          <label>Size / Description
-            <input id="size" class="input"/>
-          </label>
-          <label>Pieces (Total Lot)
-            <input id="pieces" class="input" inputmode="numeric"/>
-          </label>
-          <label>COD Amount (BDT)
-            <input id="cod" class="input" inputmode="decimal"/>
-          </label>
-        </div>
-
-        <div class="btn-row" style="margin-top:12px">
-          <button id="btnParse" class="btn">Parse Again</button>
-          <button id="btnPlace" class="btn primary">Place Order</button>
-          <span id="placeStatus" class="muted"></span>
-        </div>
-      </section>
-
-      <!-- RESULT -->
-      <section class="card pad" id="resultCard" style="display:none">
-        <div id="resultBox" class="mono"></div>
-      </section>
-    </div>
+      <!-- Result -->
+      <div class="card" id="resultCard" style="display:none;">
+        <h3 class="h">Order Result</h3>
+        <pre id="resultBox" style="white-space:pre-wrap;word-break:break-word;"></pre>
+      </div>
+    </section>
   </main>
 
   <script type="module">
     import {
-      hasSteadfastKeys, unlockSteadfastKeys, verifySteadfastKeys,
-      getSteadfastProfile, saveSteadfastKeys,
-      parseOrderMessage, placeSteadfastOrder, makeInvoice
+      parseOrderMessage, saveSteadfastKeys, verifySteadfastKeys, hasSteadfastKeys,
+      getSteadfastProfile, placeSteadfastOrder, bnToEnDigits
     } from './app.js';
 
     // ---------- Auth & pretty URL ----------
@@ -168,7 +179,7 @@
       const want = `/${encodeURIComponent(uid)}/orders`;
       if (location.pathname !== want) history.replaceState({}, '', want);
 
-      // Wire navbar links to pretty URLs + actual files
+      // Wire navbar for pretty URLs
       const nav = document.getElementById('mainTabs');
       if (nav) {
         nav.querySelectorAll('a[data-route]').forEach(a=>{
@@ -183,6 +194,10 @@
         });
       }
 
+      document.getElementById('navToggle')?.addEventListener('click', ()=>{
+        document.getElementById('mainTabs')?.classList.toggle('show');
+      });
+
       // Logout
       document.getElementById('logoutBtn')?.addEventListener('click', (e)=>{
         e.preventDefault();
@@ -193,159 +208,187 @@
         history.replaceState({}, '', '/login');
         location.replace('index.html');
       });
-
-      // Mobile toggle
-      document.getElementById('navToggle')?.addEventListener('click', ()=>{
-        document.getElementById('mainTabs')?.classList.toggle('show');
-      });
-
-      window.__uid = uid;
     })();
 
-    const $ = s=>document.querySelector(s);
-    const connectCard = $('#connectCard');
-    const accountCard = $('#accountCard');
-    const orderCard   = $('#orderCard');
-    const resultCard  = $('#resultCard');
+    const uid = sessionStorage.getItem('pw_userId') || localStorage.getItem('pw_userId');
 
-    const sfApi   = $('#sfApi');
-    const sfSecret= $('#sfSecret');
-    const sfPass  = $('#sfPass');
+    // ---------- UI refs ----------
+    const els = {
+      connectCard: document.getElementById('connectCard'),
+      statusCard:  document.getElementById('statusCard'),
+      statusBadge: document.getElementById('statusBadge'),
+      balance:     document.getElementById('balance'),
+      info:        document.getElementById('merchantInfo'),
+      btnSaveVerify: document.getElementById('btnSaveVerify'),
+      btnUnlock:   document.getElementById('btnUnlock'),
+      btnDisconnect: document.getElementById('btnDisconnect'),
+      connectStatus: document.getElementById('connectStatus'),
 
-    const connectStatus = $('#connectStatus');
-    const unlockStatus  = $('#unlockStatus');
-    const acctBalance   = $('#acctBalance');
+      api: document.getElementById('sfApiKey'),
+      sec: document.getElementById('sfSecretKey'),
+      pass:document.getElementById('sfPassphrase'),
+      company: document.getElementById('sfCompany'),
+      owner:   document.getElementById('sfOwner'),
+      mid:     document.getElementById('sfMerchant'),
 
-    // Fields
-    const msg   = $('#msg');
-    const nameF = $('#name');
-    const phoneF= $('#phone');
-    const addrF = $('#address');
-    const sizeF = $('#size');
-    const pcsF  = $('#pieces');
-    const codF  = $('#cod');
+      orderPaste: document.getElementById('orderPaste'),
+      fName:   document.getElementById('fName'),
+      fPhone:  document.getElementById('fPhone'),
+      fAddr:   document.getElementById('fAddr'),
+      fSize:   document.getElementById('fSize'),
+      fPieces: document.getElementById('fPieces'),
+      fCod:    document.getElementById('fCod'),
+      fInvoice:document.getElementById('fInvoice'),
+      fNote:   document.getElementById('fNote'),
+      btnPlace:document.getElementById('btnPlace'),
+      placeStatus: document.getElementById('placeStatus'),
+      resultCard: document.getElementById('resultCard'),
+      resultBox:  document.getElementById('resultBox')
+    };
 
-    // Buttons
-    $('#btnVerifySave')?.addEventListener('click', async ()=>{
-      connectStatus.textContent = '';
-      try{
-        const bal = await verifySteadfastKeys(window.__uid, sfPass.value || '', sfApi.value || '', sfSecret.value || '');
-        connectStatus.innerHTML = '<span class="ok">Connected.</span>';
-        acctBalance.textContent = `Balance ${bal?.current_balance ?? '—'}`;
-        connectCard.style.display = 'none';
-        accountCard.style.display = '';
-        orderCard.style.display = '';
-      }catch(err){
-        connectStatus.innerHTML = '<span class="bad">Failed to verify. Check keys & network.</span>';
-        console.error(err);
-      }
-    });
-
-    $('#btnUnlock')?.addEventListener('click', async ()=>{
-      unlockStatus.textContent = '';
-      try{
-        await unlockSteadfastKeys(window.__uid, sfPass.value || '');
-        unlockStatus.innerHTML = '<span class="ok">Unlocked.</span>';
-        // Optionally fetch balance by verifying again silently is tricky without keys exposed here.
-        connectCard.style.display = 'none';
-        accountCard.style.display = '';
-        orderCard.style.display = '';
-      }catch(err){
-        unlockStatus.innerHTML = '<span class="bad">Unlock failed (wrong phrase or no keys saved).</span>';
-      }
-    });
-
-    $('#btnDisconnect')?.addEventListener('click', async ()=>{
-      // Clear saved keys by overwriting with empty (or you can add a delete route)
-      try{
-        await saveSteadfastKeys(window.__uid, (sfPass.value||'temp'), { apiKey:'', secretKey:'' });
-      }catch(_){}
-      connectCard.style.display = '';
-      accountCard.style.display = 'none';
-      orderCard.style.display = 'none';
-    });
-
-    $('#btnRotate')?.addEventListener('click', ()=>{
-      connectCard.style.display = '';
-      accountCard.style.display = 'none';
-      orderCard.style.display = 'none';
-    });
-
-    $('#btnLock')?.addEventListener('click', ()=>{
-      connectCard.style.display = '';
-      accountCard.style.display = 'none';
-      orderCard.style.display = 'none';
-    });
-
-    // Initialize view (has keys?)
-    (async function init(){
-      try{
-        const has = await hasSteadfastKeys(window.__uid);
-        if (has){
-          // Show unlock
-          connectCard.style.display = '';
-          accountCard.style.display = 'none';
-          orderCard.style.display = 'none';
-        } else {
-          // Ask to connect
-          connectCard.style.display = '';
-          accountCard.style.display = 'none';
-          orderCard.style.display = 'none';
-        }
-      }catch(_){}
-    })();
-
-    // Parsing
-    function doParse(){
-      const o = window.lastParsed = (msg.value ? (awaitOrSync(()=>parseOrderMessage(msg.value))) : null);
-      if (o){
-        if (!nameF.value)  nameF.value  = o.name || '';
-        if (!phoneF.value) phoneF.value = o.phone || '';
-        if (!addrF.value)  addrF.value  = o.address || '';
-        if (!sizeF.value)  sizeF.value  = o.size || '';
-        if (!pcsF.value)   pcsF.value   = o.pieces || '';
-        if (!codF.value)   codF.value   = o.codAmount || '';
+    function setConnectedUI(connected, balanceText, profile){
+      els.connectCard.style.display = connected ? 'none' : '';
+      els.statusCard.style.display  = connected ? '' : 'none';
+      if (connected){
+        els.statusBadge.textContent = 'Connected';
+        els.statusBadge.classList.remove('err'); els.statusBadge.classList.add('ok');
+        els.balance.textContent = balanceText ? `Balance: ${balanceText} BDT` : '';
+        const parts = [];
+        if (profile?.companyName) parts.push(profile.companyName);
+        if (profile?.ownerName) parts.push(`Owner: ${profile.ownerName}`);
+        if (profile?.merchantId) parts.push(`Merchant ID: ${profile.merchantId}`);
+        els.info.textContent = parts.join(' • ');
       }
     }
-    function awaitOrSync(fn){ try{ return fn(); }catch{ return null; } }
 
-    $('#btnParse')?.addEventListener('click', doParse);
-    msg?.addEventListener('input', ()=>{
-      // lightweight auto parse on pause
-      clearTimeout(window.__pT);
-      window.__pT = setTimeout(doParse, 250);
-    });
-
-    // Place Order
-    $('#btnPlace')?.addEventListener('click', async ()=>{
-      $('#placeStatus').textContent = '';
+    // On load, if keys exist we still need a passphrase to unlock; show “Connect” until verified.
+    (async function initConnect(){
       try{
-        const invoice = makeInvoice(window.__uid);
-        const order = {
-          invoice,
-          recipient_name:  nameF.value.trim(),
-          recipient_phone: phoneF.value.trim(),
-          recipient_address: addrF.value.trim(),
-          cod_amount: Number(codF.value || 0),
-          item_description: sizeF.value.trim() || undefined,
-          total_lot: pcsF.value ? Number(pcsF.value) : undefined,
-          delivery_type: 0, // 0=home delivery
-          note: 'Pack & Wrap'
-        };
-        if (!order.recipient_name || !order.recipient_phone || !order.recipient_address || !order.cod_amount){
-          $('#placeStatus').innerHTML = '<span class="bad">Name, phone, address, COD are required.</span>';
-          return;
-        }
-        const out = await placeSteadfastOrder(window.__uid, sfPass.value || '', order);
-        $('#resultBox').textContent = JSON.stringify(out, null, 2);
-        resultCard.style.display = '';
-        $('#placeStatus').innerHTML = '<span class="ok">Order placed.</span>';
+        const exists = await hasSteadfastKeys(uid);
+        if (!exists) return; // show connect form
+        // show minimal “unlock” card
+        const profile = await getSteadfastProfile(uid);
+        setConnectedUI(true, '', profile);
+        els.balance.textContent = 'Balance: — (unlock to fetch)';
+      }catch(e){ /* ignore */ }
+    })();
+
+    // Save & Verify
+    els.btnSaveVerify.addEventListener('click', async ()=>{
+      els.connectStatus.textContent = '';
+      const api  = (els.api.value||'').trim();
+      const sec  = (els.sec.value||'').trim();
+      const pass = (els.pass.value||'').trim();
+      const company = (els.company.value||'').trim();
+      const owner   = (els.owner.value||'').trim();
+      const mid     = (els.mid.value||'').trim();
+
+      if (!api || !sec || !pass){ els.connectStatus.textContent = 'Enter Api-Key, Secret-Key and a password.'; return; }
+
+      els.btnSaveVerify.disabled = true;
+      els.connectStatus.textContent = 'Saving & verifying…';
+      try{
+        await saveSteadfastKeys(uid, pass, { apiKey: api, secretKey: sec }, { companyName: company, ownerName: owner, merchantId: mid });
+        const v = await verifySteadfastKeys(uid, pass);
+        const bal = (v && (v.current_balance ?? v.balance)) ?? '';
+        setConnectedUI(true, String(bal), { companyName: company, ownerName: owner, merchantId: mid });
+        els.connectStatus.textContent = '';
       }catch(err){
+        els.connectStatus.textContent = 'Failed to verify. Check keys & network.';
         console.error(err);
-        $('#placeStatus').innerHTML = '<span class="bad">Failed to place order.</span>';
+      }finally{
+        els.btnSaveVerify.disabled = false;
       }
     });
 
+    // Unlock (just verify using stored keys + passphrase)
+    els.btnUnlock.addEventListener('click', async ()=>{
+      const pass = prompt('Enter your password (to decrypt your keys):') || '';
+      if (!pass) return;
+      els.statusBadge.textContent = 'Verifying…';
+      els.statusBadge.classList.remove('ok'); els.statusBadge.classList.add('err');
+      try{
+        const v = await verifySteadfastKeys(uid, pass);
+        const bal = (v && (v.current_balance ?? v.balance)) ?? '';
+        els.statusBadge.textContent = 'Connected'; els.statusBadge.classList.remove('err'); els.statusBadge.classList.add('ok');
+        els.balance.textContent = bal ? `Balance: ${bal} BDT` : '';
+        // Remember pass in memory for this tab to enable placing orders
+        sessionStorage.setItem('pw_sf_pass', pass);
+        els.btnPlace.disabled = false;
+      }catch(err){
+        els.statusBadge.textContent = 'Not connected';
+        console.error(err);
+        alert('Failed to verify. Check keys & network.');
+      }
+    });
+
+    // Disconnect
+    els.btnDisconnect.addEventListener('click', ()=>{
+      // Simple: forget unlock for this tab
+      sessionStorage.removeItem('pw_sf_pass');
+      els.btnPlace.disabled = true;
+      alert('Keys remain saved in your account. This only removed the unlock from this tab.');
+    });
+
+    // ---------- Parsing UX ----------
+    function genInvoice(){
+      const d = new Date();
+      const pad = n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    }
+
+    function populateFromText(txt){
+      const o = parseOrderMessage(txt||'');
+      els.fName.value   = o.name || '';
+      els.fPhone.value  = o.phone || '';
+      els.fAddr.value   = o.address || '';
+      els.fSize.value   = o.size || '';
+      els.fPieces.value = o.pieces || '';
+      els.fCod.value    = o.codAmount || '';
+      if (!els.fInvoice.value) els.fInvoice.value = genInvoice();
+    }
+
+    els.orderPaste.addEventListener('input', ()=> populateFromText(els.orderPaste.value));
+
+    // ---------- Place Order ----------
+    els.btnPlace.addEventListener('click', async ()=>{
+      els.placeStatus.textContent = '';
+      const pass = sessionStorage.getItem('pw_sf_pass') || prompt('Enter your password (to decrypt your keys):') || '';
+      if (!pass) return;
+
+      const order = {
+        invoice: (els.fInvoice.value||'').trim() || genInvoice(),
+        recipient_name: (els.fName.value||'').trim(),
+        recipient_phone: bnToEnDigits((els.fPhone.value||'').trim()),
+        recipient_address: (els.fAddr.value||'').trim(),
+        cod_amount: Number((els.fCod.value||'0').trim()),
+        item_description: (els.fSize.value||'').trim(),
+        total_lot: Number((els.fPieces.value||'0').trim()) || 0,
+        delivery_type: 0,
+        note: (els.fNote.value||'').trim()
+      };
+
+      // Minimal validation
+      if (!order.recipient_name || !order.recipient_phone || !order.recipient_address){
+        els.placeStatus.textContent = 'Name, phone, and address are required.';
+        return;
+      }
+
+      els.btnPlace.disabled = true;
+      els.placeStatus.textContent = 'Placing order…';
+      try{
+        const resp = await placeSteadfastOrder(uid, pass, order);
+        els.resultCard.style.display = '';
+        els.resultBox.textContent = JSON.stringify(resp, null, 2);
+        els.placeStatus.textContent = 'Done.';
+      }catch(err){
+        console.error(err);
+        els.placeStatus.textContent = 'Failed to place order.';
+        alert('Failed to place order: ' + (err?.message || err));
+      }finally{
+        els.btnPlace.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
